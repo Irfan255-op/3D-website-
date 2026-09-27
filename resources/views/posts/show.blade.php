@@ -1,0 +1,52 @@
+@extends('layouts.app')
+
+@section('title', $post->title)
+@section('description', $post->excerpt)
+
+@section('content')
+    <article class="mx-auto max-w-3xl px-6 py-28 sm:px-8 sm:py-32">
+        <a href="{{ route('blog.index') }}" class="text-sm font-semibold text-slate-500 hover:text-blue-600">
+            <span aria-hidden="true">&larr;</span> Back to blog
+        </a>
+
+        <h1 class="mt-4 font-serif text-3xl font-medium text-slate-900 sm:text-4xl">{{ $post->title }}</h1>
+        <p class="mt-1 font-mono text-xs text-slate-400">{{ $post->published_at->format('F j, Y') }}</p>
+
+        @if ($post->image)
+            <img src="{{ Storage::url($post->image) }}" alt="{{ $post->title }}" loading="lazy" class="mt-8 w-full rounded-xl border border-slate-200 object-cover">
+        @endif
+
+        <div class="prose prose-slate mt-10 max-w-none">
+            {!! nl2br(e($post->body)) !!}
+        </div>
+
+        @if (! empty($post->faqs))
+            <section class="mt-12 border-t border-slate-200 pt-8" aria-label="Frequently asked questions">
+                <h2 class="font-serif text-xl font-medium text-slate-900">FAQs</h2>
+                <dl class="mt-4 space-y-6">
+                    @foreach ($post->faqs as $faq)
+                        <div>
+                            <dt class="font-semibold text-slate-900">{{ $faq['question'] }}</dt>
+                            <dd class="mt-1 text-slate-600">{{ $faq['answer'] }}</dd>
+                        </div>
+                    @endforeach
+                </dl>
+            </section>
+
+            <script type="application/ld+json">
+                {!! json_encode([
+                    '@context' => 'https://schema.org',
+                    '@type' => 'FAQPage',
+                    'mainEntity' => collect($post->faqs)->map(fn ($faq) => [
+                        '@type' => 'Question',
+                        'name' => $faq['question'],
+                        'acceptedAnswer' => [
+                            '@type' => 'Answer',
+                            'text' => $faq['answer'],
+                        ],
+                    ])->all(),
+                ], JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) !!}
+            </script>
+        @endif
+    </article>
+@endsection

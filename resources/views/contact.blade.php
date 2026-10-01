@@ -64,14 +64,14 @@
                     @enderror
                 </div>
 
-                <button type="submit" class="w-full rounded-full bg-blue-600 px-6 py-3 text-sm font-semibold text-white transition hover:bg-blue-700">
+                <button type="submit" class="w-full rounded-full bg-brand-600 px-6 py-3 text-sm font-semibold text-white transition hover:bg-brand-700">
                     Send message
                 </button>
             </form>
 
             <p class="mt-8 text-center text-sm text-slate-500">
                 Prefer email? Reach me directly at
-                <a href="mailto:shoeb4303@gmail.com" class="font-semibold text-slate-900 hover:text-blue-600">shoeb4303@gmail.com</a>
+                <a href="mailto:shoeb4303@gmail.com" class="font-semibold text-slate-900 hover:text-brand-600">shoeb4303@gmail.com</a>
             </p>
         </div>
     </x-section>

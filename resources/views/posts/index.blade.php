@@ -18,7 +18,7 @@
                 @foreach ($posts as $post)
                     <article data-animate class="py-8">
                         <a href="{{ route('blog.show', $post) }}" class="group">
-                            <h2 class="font-serif text-xl font-medium text-slate-900 transition group-hover:text-blue-600">{{ $post->title }}</h2>
+                            <h2 class="font-serif text-xl font-medium text-slate-900 transition group-hover:text-brand-600">{{ $post->title }}</h2>
                         </a>
                         <p class="mt-1 font-mono text-xs text-slate-400">{{ $post->published_at->format('F j, Y') }}</p>
                         <p class="mt-3 text-slate-600">{{ $post->excerpt }}</p>

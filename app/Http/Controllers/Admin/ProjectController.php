@@ -81,6 +81,8 @@ class ProjectController extends Controller
             'body' => ['required', 'string'],
             'image' => ['nullable', 'image', 'max:4096'],
             'tags' => ['nullable', 'string'],
+            'url' => ['nullable', 'url', 'max:255'],
+            'is_embeddable' => ['nullable', 'boolean'],
         ]);
     }
 
@@ -95,6 +97,8 @@ class ProjectController extends Controller
             'slug' => Str::slug($data['title']),
             'tech_stack' => $data['tech_stack'],
             'body' => $data['body'],
+            'url' => $data['url'] ?? null,
+            'is_embeddable' => $data['is_embeddable'] ?? false,
         ];
 
         if (request()->hasFile('image')) {

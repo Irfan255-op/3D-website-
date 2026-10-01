@@ -21,7 +21,19 @@ class Project extends Model
         'tech_stack',
         'body',
         'image',
+        'url',
+        'is_embeddable',
     ];
+
+    /**
+     * @return array<string, string>
+     */
+    protected function casts(): array
+    {
+        return [
+            'is_embeddable' => 'boolean',
+        ];
+    }
 
     public function getRouteKeyName(): string
     {

@@ -7,7 +7,7 @@
     @if ($bleed)
         {{ $slot }}
     @else
-        <div class="mx-auto max-w-6xl px-6 sm:px-8">
+        <div class="mx-auto w-full max-w-[1920px] px-6 sm:px-8 lg:px-16">
             {{ $slot }}
         </div>
     @endif

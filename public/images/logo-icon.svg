@@ -1,0 +1,41 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="1200" viewBox="380 200 480 620">
+  <defs>
+    <linearGradient id="blue" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#1557E8"/>
+      <stop offset="55%" stop-color="#168BFF"/>
+      <stop offset="100%" stop-color="#27C9F2"/>
+    </linearGradient>
+  </defs>
+
+  <path fill="url(#blue)" d="
+    M455 330
+    L600 245
+    L745 330
+    L745 410
+    L600 325
+    L505 380
+    L610 442
+    L610 535
+    L455 445
+    L455 330 Z"/>
+  <path fill="url(#blue)" d="
+    M600 360
+    L680 407
+    L680 590
+    L745 552
+    L800 645
+    L600 760
+    L600 670
+    L680 624
+    L680 470
+    L600 424 Z"/>
+  <path fill="url(#blue)" d="
+    M600 670
+    L745 585
+    L800 675
+    L600 790
+    L455 705
+    L455 620
+    L600 705 Z"/>
+</svg>

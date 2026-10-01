@@ -21,6 +21,8 @@ class ProjectSeeder extends Seeder
                     'title' => $data['title'],
                     'tech_stack' => $data['tech_stack'],
                     'body' => trim($data['body']),
+                    'url' => $data['url'],
+                    'is_embeddable' => $data['is_embeddable'],
                 ]
             );
 
@@ -43,6 +45,8 @@ class ProjectSeeder extends Seeder
                 'title' => 'Trybestream — Live Audio Broadcasting Platform',
                 'tech_stack' => 'Laravel, JavaScript, MySQL, LiveKit, WebRTC, Laravel Reverb, REST API',
                 'tags' => ['SaaS', 'Real-time', 'Streaming'],
+                'url' => 'https://trybestream.com',
+                'is_embeddable' => true,
                 'body' => <<<'BODY'
                     Situation
                     Trybestream needed a live audio broadcasting platform that could support community-driven, low-latency streaming at scale — without the production overhead of video — serving education, faith-based, and entertainment communities across global and Nigerian markets.
@@ -61,6 +65,8 @@ class ProjectSeeder extends Seeder
                 'title' => 'AliveCRM Software',
                 'tech_stack' => 'JavaScript, Bootstrap, MySQL, PHP',
                 'tags' => ['CRM', 'Internal Tools'],
+                'url' => 'https://alivecrm.com',
+                'is_embeddable' => false,
                 'body' => <<<'BODY'
                     Situation
                     Alive Inc. needed an internal CRM with a notes system that stayed in sync with the central database in real time, plus proper access boundaries between staff and admin accounts.
@@ -79,6 +85,8 @@ class ProjectSeeder extends Seeder
                 'title' => 'Alive Inc. Official Website',
                 'tech_stack' => 'HTML, CSS, JavaScript',
                 'tags' => ['Corporate Website', 'Frontend'],
+                'url' => 'https://aliveinc.in',
+                'is_embeddable' => false,
                 'body' => <<<'BODY'
                     Situation
                     Alive Inc. needed a corporate website that could clearly present its full service range — global IT services, AI/ML, OTT, and custom software — to an international client base.
@@ -97,6 +105,8 @@ class ProjectSeeder extends Seeder
                 'title' => 'Terna Life Platform',
                 'tech_stack' => 'WordPress, WooCommerce, PHP, Custom Themes',
                 'tags' => ['E-commerce', 'WordPress'],
+                'url' => 'https://ternalife.com',
+                'is_embeddable' => true,
                 'body' => <<<'BODY'
                     Situation
                     Terna Life Sciences, a premium cashew and dry-fruit supplier, needed an e-commerce platform to sell directly to consumers online, with an easy-to-manage product catalog spanning multiple grades and flavors.

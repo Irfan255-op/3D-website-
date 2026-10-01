@@ -5,7 +5,7 @@
 
 @section('content')
     <article class="mx-auto max-w-3xl px-6 py-28 sm:px-8 sm:py-32">
-        <a href="{{ route('work.index') }}" class="text-sm font-semibold text-slate-500 hover:text-blue-600">
+        <a href="{{ route('work.index') }}" class="text-sm font-semibold text-slate-500 hover:text-brand-600">
             <span aria-hidden="true">&larr;</span> Back to work
         </a>
 

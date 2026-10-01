@@ -7,16 +7,16 @@
 
     <div class="mt-6 space-y-4">
         @forelse ($messages as $message)
-            <div class="rounded-xl border bg-white p-5 {{ $message->read_at ? 'border-slate-200' : 'border-blue-300' }}">
+            <div class="rounded-xl border bg-white p-5 {{ $message->read_at ? 'border-slate-200' : 'border-brand-300' }}">
                 <div class="flex items-start justify-between gap-4">
                     <div>
                         <p class="font-semibold text-slate-900">
                             {{ $message->name }}
                             @unless ($message->read_at)
-                                <span class="ml-2 rounded-full bg-blue-100 px-2 py-0.5 text-xs font-medium text-blue-700">New</span>
+                                <span class="ml-2 rounded-full bg-brand-100 px-2 py-0.5 text-xs font-medium text-brand-700">New</span>
                             @endunless
                         </p>
-                        <a href="mailto:{{ $message->email }}" class="text-sm text-slate-500 hover:text-blue-600">{{ $message->email }}</a>
+                        <a href="mailto:{{ $message->email }}" class="text-sm text-slate-500 hover:text-brand-600">{{ $message->email }}</a>
                     </div>
                     <span class="shrink-0 text-xs text-slate-400">{{ $message->created_at->diffForHumans() }}</span>
                 </div>

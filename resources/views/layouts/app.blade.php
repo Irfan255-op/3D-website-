@@ -31,14 +31,25 @@
     @stack('head')
 </head>
 <body class="bg-white font-sans text-slate-900 antialiased">
-    <x-navbar />
+    <div id="page-loader" aria-hidden="true">
+        <img src="{{ asset('images/logo.svg') }}" alt="" class="page-loader-logo" width="120" height="120">
+    </div>
 
-    <main>
+    <x-navbar />
+    <x-sidebar-nav />
+
+    <main class="relative z-10 lg:pl-64">
         {{ $slot ?? '' }}
         @yield('content')
     </main>
 
     <x-footer />
+
+    <div id="cursor-ring" aria-hidden="true">
+        <div id="cursor-ring-inner">
+            <span id="cursor-ring-label"></span>
+        </div>
+    </div>
 
     @stack('scripts')
 </body>

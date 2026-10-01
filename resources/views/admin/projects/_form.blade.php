@@ -46,6 +46,27 @@
     </div>
 
     <div>
+        <label for="url" class="block text-sm font-medium text-slate-700">Live project URL</label>
+        <input id="url" type="url" name="url" value="{{ old('url', $project->url) }}"
+            placeholder="https://example.com"
+            aria-invalid="{{ $errors->has('url') ? 'true' : 'false' }}"
+            aria-describedby="url-error"
+            class="mt-1 w-full rounded-md border px-3 py-2 text-sm {{ $errors->has('url') ? 'border-red-400' : 'border-slate-300' }}">
+        @error('url')
+            <p id="url-error" class="mt-1 text-sm text-red-600">{{ $message }}</p>
+        @enderror
+    </div>
+
+    <div class="flex items-start gap-2">
+        <input id="is_embeddable" type="checkbox" name="is_embeddable" value="1" {{ old('is_embeddable', $project->is_embeddable) ? 'checked' : '' }}
+            class="mt-1 rounded border-slate-300">
+        <label for="is_embeddable" class="text-sm text-slate-700">
+            Allow live preview embed
+            <span class="block text-xs text-slate-400">Only enable if the site doesn't block iframes (check for X-Frame-Options / CSP headers first) &mdash; otherwise the preview will show blank.</span>
+        </label>
+    </div>
+
+    <div>
         <label for="image" class="block text-sm font-medium text-slate-700">Cover image</label>
         <input id="image" type="file" name="image" accept="image/*"
             aria-invalid="{{ $errors->has('image') ? 'true' : 'false' }}"

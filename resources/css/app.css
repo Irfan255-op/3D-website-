@@ -7,6 +7,320 @@
     --font-sans: 'Source Serif 4', ui-serif, Georgia, serif;
     --font-serif: 'Playfair Display', ui-serif, Georgia, serif;
     --font-mono: 'JetBrains Mono', ui-monospace, 'SFMono-Regular', Menlo, monospace;
+
+    --color-brand-50: #eef5ff;
+    --color-brand-100: #dcebff;
+    --color-brand-200: #b9d6ff;
+    --color-brand-300: #86b9ff;
+    --color-brand-400: #4d94ff;
+    --color-brand-500: #168bff;
+    --color-brand-600: #1557e8;
+    --color-brand-700: #1043b8;
+    --color-brand-800: #0f3690;
+    --color-brand-900: #0c2a6e;
+    --color-brand-cyan: #27c9f2;
+}
+
+.text-brand-gradient {
+    background-image: linear-gradient(135deg, var(--color-brand-600) 0%, var(--color-brand-500) 55%, var(--color-brand-cyan) 100%);
+    background-clip: text;
+    -webkit-background-clip: text;
+    color: transparent;
+}
+
+@keyframes loader-pulse {
+    0%,
+    100% {
+        transform: scale(1);
+        opacity: 1;
+    }
+    50% {
+        transform: scale(1.08);
+        opacity: 0.85;
+    }
+}
+
+@keyframes loader-auto-hide {
+    to {
+        opacity: 0;
+        visibility: hidden;
+        pointer-events: none;
+    }
+}
+
+#page-loader {
+    position: fixed;
+    inset: 0;
+    z-index: 10000;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--color-slate-950);
+    opacity: 1;
+    transition:
+        opacity 0.6s ease,
+        visibility 0.6s ease;
+    animation: loader-auto-hide 0.6s ease 3s forwards;
+}
+
+#page-loader.is-hidden {
+    opacity: 0;
+    visibility: hidden;
+    pointer-events: none;
+}
+
+.page-loader-logo {
+    width: 96px;
+    height: 96px;
+    animation: loader-pulse 1.6s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .page-loader-logo {
+        animation: none;
+    }
+}
+
+/* --- Hero sphere stage ------------------------------------------------ */
+
+.stage-wash,
+.stage-ambient,
+.stage-blob,
+.stage-canvas,
+.stage-grain {
+    position: fixed;
+    z-index: 0;
+    pointer-events: none;
+}
+
+/* A single huge, slow gradient spanning several page-heights, nudged by
+   --scroll-progress (set in app.js) rather than its own animation loop.
+   Much bigger and slower than .stage-blob — it's there so the space between
+   sections reads as "the same drifting field" instead of flat white gaps. */
+.stage-wash {
+    inset: 0;
+    opacity: 0.6;
+    background: linear-gradient(
+        180deg,
+        color-mix(in oklab, var(--color-brand-600) 8%, transparent) 0%,
+        transparent 32%,
+        transparent 68%,
+        color-mix(in oklab, var(--color-brand-cyan) 10%, transparent) 100%
+    );
+    background-size: 100% 320vh;
+    background-position: 0 calc(var(--scroll-progress, 0) * -110vh);
+}
+
+.stage-ambient {
+    inset: 0;
+    background:
+        radial-gradient(55% 45% at 12% 18%, color-mix(in oklab, var(--color-brand-600) 15%, transparent) 0%, transparent 62%),
+        radial-gradient(50% 42% at 88% 78%, color-mix(in oklab, var(--color-brand-cyan) 14%, transparent) 0%, transparent 65%),
+        radial-gradient(42% 38% at 55% 100%, color-mix(in oklab, var(--color-brand-500) 10%, transparent) 0%, transparent 70%);
+}
+
+.stage-blob {
+    border-radius: 58% 42% 38% 62% / 55% 35% 65% 45%;
+    filter: blur(90px);
+    opacity: 0.5;
+}
+
+.stage-blob--a {
+    width: 46vw;
+    height: 46vw;
+    top: -12vw;
+    left: -10vw;
+    background: linear-gradient(135deg, var(--color-brand-600), var(--color-brand-500));
+    animation: stage-drift-a 26s ease-in-out infinite;
+}
+
+.stage-blob--b {
+    width: 38vw;
+    height: 38vw;
+    bottom: -14vw;
+    right: -8vw;
+    background: linear-gradient(135deg, var(--color-brand-cyan), var(--color-brand-500));
+    animation: stage-drift-b 32s ease-in-out infinite;
+}
+
+@keyframes stage-drift-a {
+    0%,
+    100% {
+        transform: translate(0, 0) scale(1);
+    }
+    50% {
+        transform: translate(3vw, 4vw) scale(1.08);
+    }
+}
+
+@keyframes stage-drift-b {
+    0%,
+    100% {
+        transform: translate(0, 0) scale(1);
+    }
+    50% {
+        transform: translate(-3vw, -3vw) scale(1.06);
+    }
+}
+
+.stage-canvas {
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    /* Starts invisible so there's no flash before the WebGL module has even
+       loaded; app.js fades it in once the scene is actually ready. */
+    opacity: 0;
+    transition: opacity 0.4s ease;
+}
+
+@media (min-width: 1024px) {
+    .stage-canvas {
+        left: 16rem;
+        width: calc(100% - 16rem);
+    }
+}
+
+.stage-grain {
+    inset: -50%;
+    /* Low opacity on purpose — app.js swaps the background-image for a
+       properly dithered noise texture, which has far more contrast per
+       pixel than this SVG fallback, so it needs a much lighter hand here. */
+    opacity: 0.1;
+    mix-blend-mode: multiply;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='180' height='180' filter='url(%23n)' opacity='0.22'/%3E%3C/svg%3E");
+    background-repeat: repeat;
+    animation: stage-grain 0.9s steps(3) infinite;
+}
+
+@keyframes stage-grain {
+    0% {
+        transform: translate(0, 0);
+    }
+    33% {
+        transform: translate(-2%, 1%);
+    }
+    66% {
+        transform: translate(1%, -2%);
+    }
+    100% {
+        transform: translate(0, 0);
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .stage-blob,
+    .stage-grain {
+        animation: none;
+    }
+}
+
+/* --- Stage sections -------------------------------------------------- */
+
+.stage-section {
+    padding: clamp(72px, 10vh, 116px) clamp(16px, 6vw, 64px);
+}
+
+.stage-card {
+    max-width: 34rem;
+    border-radius: 1.5rem;
+    border: 1px solid color-mix(in oklab, var(--color-slate-200) 85%, transparent);
+    background: color-mix(in oklab, white 74%, transparent);
+    backdrop-filter: blur(16px);
+    padding: clamp(1.75rem, 4vw, 2.75rem);
+}
+
+.stage-card[data-side='right'] {
+    margin-left: auto;
+}
+
+@media (max-width: 767px) {
+    .stage-card[data-side='right'] {
+        margin-left: 0;
+    }
+}
+
+.chapter-rail {
+    position: fixed;
+    right: clamp(10px, 1.5vw, 24px);
+    top: 50%;
+    transform: translateY(-50%);
+    z-index: 30;
+    display: flex;
+    flex-direction: column;
+    gap: 13px;
+    font-family: var(--font-mono);
+    font-size: 10px;
+    letter-spacing: 0.12em;
+}
+
+.chapter-rail a {
+    color: var(--color-slate-400);
+    opacity: 0.6;
+    text-decoration: none;
+    transition:
+        opacity 0.25s ease,
+        color 0.25s ease;
+}
+
+.chapter-rail a[aria-current='true'] {
+    opacity: 1;
+    color: var(--color-brand-600);
+    font-weight: 500;
+}
+
+.section-caption {
+    position: fixed;
+    bottom: calc(22px + env(safe-area-inset-bottom, 0px));
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 25;
+    margin: 0;
+    font-family: var(--font-mono);
+    font-size: 10px;
+    letter-spacing: 0.22em;
+    text-transform: uppercase;
+    color: var(--color-slate-400);
+    pointer-events: none;
+}
+
+.motion-toggle {
+    position: fixed;
+    left: clamp(16px, 4vw, 40px);
+    bottom: calc(20px + env(safe-area-inset-bottom, 0px));
+    z-index: 30;
+    cursor: pointer;
+    font-family: var(--font-mono);
+    font-size: 11px;
+    letter-spacing: 0.08em;
+    color: var(--color-slate-500);
+    background: color-mix(in oklab, white 78%, transparent);
+    border: 1px solid var(--color-slate-200);
+    border-radius: 9999px;
+    padding: 9px 16px;
+    backdrop-filter: blur(8px);
+}
+
+.motion-toggle:hover {
+    color: var(--color-brand-600);
+    border-color: var(--color-brand-600);
+}
+
+/* Clear the fixed sidebar, which otherwise sits over both of these. */
+@media (min-width: 1024px) {
+    .motion-toggle {
+        left: calc(16rem + clamp(16px, 2vw, 32px));
+    }
+
+    .section-caption {
+        left: calc(50% + 8rem);
+    }
+}
+
+@media (max-width: 1023px) {
+    .chapter-rail,
+    .section-caption {
+        display: none;
+    }
 }
 
 @keyframes marquee {
@@ -47,6 +361,91 @@ input:focus-visible,
 textarea:focus-visible,
 select:focus-visible,
 [tabindex]:focus-visible {
-    outline: 2px solid var(--color-blue-600);
+    outline: 2px solid var(--color-brand-600);
     outline-offset: 3px;
+}
+
+#cursor-ring {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 0;
+    height: 0;
+    display: none;
+    pointer-events: none;
+    z-index: 9999;
+    will-change: transform;
+}
+
+.custom-cursor-active {
+    cursor: none;
+}
+
+.custom-cursor-active a,
+.custom-cursor-active button,
+.custom-cursor-active input,
+.custom-cursor-active textarea,
+.custom-cursor-active select {
+    cursor: none;
+}
+
+.custom-cursor-active #cursor-ring {
+    display: block;
+}
+
+#cursor-ring-inner {
+    position: absolute;
+    top: -48px;
+    left: -48px;
+    width: 96px;
+    height: 96px;
+    border-radius: 9999px;
+    border: 1px solid color-mix(in oklab, var(--color-slate-900) 15%, transparent);
+    background: color-mix(in oklab, white 8%, transparent);
+    backdrop-filter: blur(1px);
+    box-shadow: inset 0 0 24px color-mix(in oklab, white 25%, transparent);
+    opacity: 0;
+    transform: scale(0.6);
+    transition:
+        opacity 0.25s ease,
+        transform 0.3s ease,
+        border-color 0.25s ease,
+        background-color 0.25s ease;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+#cursor-ring.is-visible #cursor-ring-inner {
+    opacity: 1;
+    transform: scale(1);
+}
+
+#cursor-ring.is-hovering #cursor-ring-inner {
+    transform: scale(1.15);
+    background: color-mix(in oklab, white 14%, transparent);
+    border-color: color-mix(in oklab, var(--color-brand-600) 55%, transparent);
+}
+
+#cursor-ring.is-labelled #cursor-ring-inner {
+    transform: scale(0.7);
+    background: var(--color-brand-600);
+    border-color: var(--color-brand-600);
+    box-shadow: none;
+}
+
+#cursor-ring-label {
+    font-family: var(--font-mono);
+    font-size: 0.65rem;
+    font-weight: 500;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: white;
+    opacity: 0;
+    transition: opacity 0.2s ease;
+    white-space: nowrap;
+}
+
+#cursor-ring.is-labelled #cursor-ring-label {
+    opacity: 1;
 }

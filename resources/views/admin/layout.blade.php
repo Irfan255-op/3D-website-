@@ -12,7 +12,10 @@
     @auth
         <header class="border-b border-slate-200 bg-white">
             <div class="mx-auto flex max-w-5xl items-center justify-between px-6 py-4">
-                <a href="{{ route('admin.projects.index') }}" class="font-bold">Corefolio Admin</a>
+                <a href="{{ route('admin.projects.index') }}" class="flex items-center gap-2 font-bold">
+                    <img src="{{ asset('images/logo-icon.svg') }}" alt="" class="h-6 w-6" width="24" height="24">
+                    shaikh.labs Admin
+                </a>
                 <nav class="flex items-center gap-6 text-sm font-medium text-slate-600">
                     <a href="{{ route('admin.projects.index') }}" class="hover:text-slate-900">Case studies</a>
                     <a href="{{ route('admin.messages.index') }}" class="hover:text-slate-900">Messages</a>

@@ -35,10 +35,46 @@
         <img src="{{ asset('images/logo.svg') }}" alt="" class="page-loader-logo" width="120" height="120">
     </div>
 
+    {{-- Ambient stage background on every page — the slow wash, drifting
+         blobs, and grain. The WebGL sphere canvas joins them here too (not
+         inside <main>) so all five stay true siblings at the same z-index:0
+         stacking level — <main> has its own z-index:10 context, and a canvas
+         nested inside it would paint above the grain instead of under it.
+         The sphere itself (chapter rail, caption, motion toggle) stays
+         homepage-only; it's wired to specific section waypoints that only
+         exist there. --}}
+    <div aria-hidden="true" class="stage-wash"></div>
+    <div aria-hidden="true" class="stage-ambient"></div>
+    <div aria-hidden="true" class="stage-blob stage-blob--a"></div>
+    <div aria-hidden="true" class="stage-blob stage-blob--b"></div>
+    {{-- Moves at its own rate against --scroll-progress (set every frame in
+         app.js), independently of the two idle-drift blobs above, and is
+         tinted by --mood-r/g/b — the per-section "mood" colour the hero
+         sphere's waypoints also drive. The combination is what makes each
+         section read as its own scene rather than one continuous backdrop. --}}
+    <div aria-hidden="true" class="stage-blob stage-blob--c"></div>
+    @if (request()->routeIs('home'))
+        <canvas id="hero-sphere" aria-hidden="true" class="stage-canvas"></canvas>
+    @endif
+    <div aria-hidden="true" class="stage-grain"></div>
+
+    @if (request()->routeIs('home'))
+        {{-- One-time "opening curtain": as you scroll from the hero into
+             About, the orb dissolves into a flat colour circle expanding
+             from its own screen position, covering the frame, then fades
+             away to reveal About already settled in behind it. Driven
+             entirely from app.js (GSAP ScrollTrigger + CSS custom
+             properties) — see the scene-wipe setup in buildHeroSphere.
+             z-50 so it sits above <main>'s z-10 during the transition;
+             pointer-events none always, since nothing interactive lives
+             in it. --}}
+        <div id="scene-wipe" aria-hidden="true" class="scene-wipe"></div>
+    @endif
+
     <x-navbar />
     <x-sidebar-nav />
 
-    <main class="relative z-10 lg:pl-64">
+    <main class="relative z-10 lg:pl-20">
         {{ $slot ?? '' }}
         @yield('content')
     </main>

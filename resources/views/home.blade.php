@@ -11,6 +11,7 @@
         ['title' => 'Payments & Webhooks', 'description' => 'Razorpay and Paystack integrations with automated subscription billing.'],
         ['title' => 'TailwindCSS & Vite', 'description' => 'Pixel-perfect, responsive interfaces with lean, fast-loading assets.'],
         ['title' => 'Vanilla JavaScript', 'description' => 'Interactive, dependency-free front ends that stay fast on any device.'],
+        ['title' => 'GSAP & Motion Design', 'description' => 'Scroll-driven animation, custom easing, and interactive 3D/WebGL built with GSAP and Three.js.'],
     ];
 
     $services = [
@@ -38,15 +39,9 @@
 @endphp
 
 @section('content')
-    {{-- The stage: ambient wash, drifting blobs, the WebGL sphere, and grain.
-         All fixed, all behind <main>, which carries its own stacking context. --}}
-    <div aria-hidden="true" class="stage-wash"></div>
-    <div aria-hidden="true" class="stage-ambient"></div>
-    <div aria-hidden="true" class="stage-blob stage-blob--a"></div>
-    <div aria-hidden="true" class="stage-blob stage-blob--b"></div>
-    <canvas id="hero-sphere" aria-hidden="true" class="stage-canvas"></canvas>
-    <div aria-hidden="true" class="stage-grain"></div>
-
+    {{-- The stage background, including the WebGL sphere canvas, now renders
+         via the shared layout (kept as true siblings for correct z-index
+         stacking — see layouts/app.blade.php). --}}
     <nav class="chapter-rail" aria-label="Section progress">
         <a href="#top" data-rail="0">00</a>
         <a href="#about" data-rail="1">01</a>
@@ -60,7 +55,7 @@
 
     <button type="button" class="motion-toggle" id="motion-toggle" aria-pressed="false">&#9208; Pause motion</button>
 
-    <x-section bleed id="top" data-sphere-hero class="relative min-h-[88vh] sm:min-h-[92vh]">
+    <x-section bleed id="top" data-sphere-hero data-sphere-mood="#1557e8" class="relative min-h-[88vh] sm:min-h-[92vh]">
         <div class="relative z-10 flex min-h-[88vh] items-center px-6 py-24 sm:min-h-[92vh] sm:px-8 lg:px-16">
             <div class="w-full max-w-2xl text-center lg:text-left">
                 <p data-animate class="font-mono text-sm font-medium uppercase tracking-widest text-slate-500">A journey of clean, purposeful code</p>
@@ -77,6 +72,10 @@
                     <span>Available for freelance work</span>
                     <span aria-hidden="true">&middot;</span>
                     <span>Based in Mumbra, Maharashtra</span>
+                    @if ($projectCount > 0)
+                        <span aria-hidden="true">&middot;</span>
+                        <span>{{ $projectCount }} {{ Str::plural('project', $projectCount) }} shipped</span>
+                    @endif
                 </div>
 
                 <div data-animate class="mt-8 flex flex-wrap items-center justify-center gap-4 lg:justify-start">
@@ -102,6 +101,7 @@
         data-sphere-rot="0.35"
         data-sphere-spike="1"
         data-sphere-bands="0"
+        data-sphere-mood="#3147c9"
     >
         <div data-animate class="stage-card" data-side="right">
             <p class="font-mono text-xs uppercase tracking-[0.14em] text-brand-600">01 &mdash; The developer</p>
@@ -130,6 +130,7 @@
         data-sphere-rot="-0.4"
         data-sphere-spike="0"
         data-sphere-bands="1"
+        data-sphere-mood="#1f8fe6"
     >
         <div data-animate class="stage-card">
             <p class="font-mono text-xs uppercase tracking-[0.14em] text-brand-600">02 &mdash; What I offer</p>
@@ -142,7 +143,7 @@
                         <p class="mt-1 text-sm leading-relaxed text-slate-600">{!! $service['description'] !!}</p>
                         <ul class="mt-3 flex flex-wrap gap-2">
                             @foreach ($service['tags'] as $tag)
-                                <li class="rounded-full bg-brand-50 px-3 py-1 font-mono text-[11px] uppercase tracking-wide text-brand-600 ring-1 ring-brand-100">{{ $tag }}</li>
+                                <li class="tag-pill">{{ $tag }}</li>
                             @endforeach
                         </ul>
                     </div>
@@ -160,8 +161,10 @@
         data-sphere-y="0.25"
         data-sphere-scale="0.92"
         data-sphere-rot="0.5"
-        data-sphere-spike="0.5"
+        data-sphere-spike="0"
         data-sphere-bands="0"
+        data-sphere-gem="1"
+        data-sphere-mood="#1043b8"
     >
         <div data-animate class="stage-card" data-side="right">
             <p class="font-mono text-xs uppercase tracking-[0.14em] text-brand-600">03 &mdash; Core skills</p>
@@ -169,9 +172,10 @@
 
             <ul class="mt-6 flex flex-wrap gap-2">
                 @foreach ($skills as $skill)
-                    <li class="rounded-full border border-brand-100 bg-brand-50 px-3 py-1.5 font-mono text-[11px] uppercase tracking-wide text-brand-600">
-                        {{ $skill['title'] }}
-                    </li>
+                    <li
+                        class="tag-pill cursor-default outline-none focus-visible:ring-2 focus-visible:ring-brand-400"
+                        data-skill-index="{{ $loop->index }}"
+                    >{{ $skill['title'] }}</li>
                 @endforeach
             </ul>
 
@@ -191,7 +195,9 @@
         data-sphere-scale="1.02"
         data-sphere-rot="-0.5"
         data-sphere-spike="0"
-        data-sphere-bands="1"
+        data-sphere-bands="0"
+        data-sphere-discs="1"
+        data-sphere-mood="#0ea8c4"
     >
         <div data-animate class="stage-card">
             <p class="font-mono text-xs uppercase tracking-[0.14em] text-brand-600">04 &mdash; Selected work</p>
@@ -232,6 +238,8 @@
         data-sphere-rot="0.3"
         data-sphere-spike="0"
         data-sphere-bands="0"
+        data-sphere-beacon="1"
+        data-sphere-mood="#4f93f5"
     >
         <div data-animate class="stage-card" data-side="right">
             <p class="font-mono text-xs uppercase tracking-[0.14em] text-brand-600">05 &mdash; Let's build</p>

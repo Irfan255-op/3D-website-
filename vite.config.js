@@ -15,4 +15,13 @@ export default defineConfig({
             ignored: ['**/storage/framework/views/**'],
         },
     },
+    build: {
+        // three.js (~736KB) is the whole reason this warning fires on every
+        // build. It's already as split as it can usefully be — dynamically
+        // imported only on the homepage, in its own chunk, never part of
+        // the initial page load — so the warning was noise, not a real
+        // problem to chase. Raised the threshold rather than silencing it
+        // outright, so a genuinely oversized *new* chunk still gets flagged.
+        chunkSizeWarningLimit: 800,
+    },
 });

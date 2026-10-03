@@ -3,6 +3,16 @@
 @source '../../vendor/laravel/framework/src/Illuminate/Pagination/resources/views/*.blade.php';
 @source '../../storage/framework/views/*.php';
 
+:root {
+    /* Default = brand-600 (#1557e8) as RGB components. app.js overwrites
+       these every frame on the homepage, interpolated per the active
+       section's data-sphere-mood; everywhere else they just sit at this
+       default, which matches the original always-brand-blue ambient glow. */
+    --mood-r: 21;
+    --mood-g: 87;
+    --mood-b: 232;
+}
+
 @theme {
     --font-sans: 'Source Serif 4', ui-serif, Georgia, serif;
     --font-serif: 'Playfair Display', ui-serif, Georgia, serif;
@@ -113,8 +123,13 @@
 
 .stage-ambient {
     inset: 0;
+    /* The top-left glow is tinted by the current section's mood colour
+       instead of a fixed brand shade, so it shifts subtly as you scroll
+       through different "scenes." The other two stay fixed brand accents —
+       enough constancy to keep it reading as one site, not a different
+       palette every section. */
     background:
-        radial-gradient(55% 45% at 12% 18%, color-mix(in oklab, var(--color-brand-600) 15%, transparent) 0%, transparent 62%),
+        radial-gradient(55% 45% at 12% 18%, rgb(var(--mood-r) var(--mood-g) var(--mood-b) / 16%) 0%, transparent 62%),
         radial-gradient(50% 42% at 88% 78%, color-mix(in oklab, var(--color-brand-cyan) 14%, transparent) 0%, transparent 65%),
         radial-gradient(42% 38% at 55% 100%, color-mix(in oklab, var(--color-brand-500) 10%, transparent) 0%, transparent 70%);
 }
@@ -163,6 +178,22 @@
     }
 }
 
+/* Unlike --a/--b (idle looping drift), this one has no keyframe — its only
+   motion is a direct function of scroll position, moving at its own rate
+   against --scroll-progress so it reads as a nearer depth layer than the
+   wash behind it. Colour-tinted by the active section's mood instead of a
+   fixed brand shade. */
+.stage-blob--c {
+    width: 32vw;
+    height: 32vw;
+    top: 28vh;
+    left: 50%;
+    background: radial-gradient(circle, rgb(var(--mood-r) var(--mood-g) var(--mood-b) / 55%), transparent 70%);
+    filter: blur(110px);
+    opacity: 0.4;
+    transform: translate(-50%, calc(var(--scroll-progress, 0) * -140vh));
+}
+
 .stage-canvas {
     inset: 0;
     width: 100%;
@@ -173,10 +204,26 @@
     transition: opacity 0.4s ease;
 }
 
+/* The hero->About "opening curtain." clip-path/opacity/background are all
+   set directly from app.js's scrubbed ScrollTrigger (not via CSS custom
+   properties — a var()-based clip-path here intermittently resolved to
+   `none` instead of picking up live updates; setting the properties
+   directly from JS, same as .stage-canvas's opacity elsewhere, sidesteps
+   it entirely). This is just the base/default state before JS takes over. */
+.scene-wipe {
+    position: fixed;
+    inset: 0;
+    z-index: 50;
+    pointer-events: none;
+    clip-path: circle(0vmax at 70% 35%);
+    opacity: 0;
+}
+
 @media (min-width: 1024px) {
     .stage-canvas {
-        left: 16rem;
-        width: calc(100% - 16rem);
+        /* Matches the sidebar rail's lg:w-20 (5rem/80px) in sidebar-nav.blade.php. */
+        left: 5rem;
+        width: calc(100% - 5rem);
     }
 }
 
@@ -212,6 +259,42 @@
     .stage-grain {
         animation: none;
     }
+
+    /* Has no keyframe to disable above — its motion comes from
+       --scroll-progress directly, so it needs its own opt-out. */
+    .stage-blob--c {
+        display: none;
+    }
+
+    /* The hero sphere canvas is removed entirely for reduced motion
+       (app.js), and with it every section's mood-coloured ambient glow and
+       the permanent-blue background past About — both are driven by its
+       per-frame loop. Without this, a reduced-motion visitor got a flat
+       white-and-wash page with none of that atmosphere: not just less
+       animated, but visibly less designed. Rather than attempt to fake the
+       animated curtain/explode sequence with static CSS (which only makes
+       sense as the payoff of a transition these visitors never see), each
+       section gets its own subtle static wash in the same mood colour its
+       data-sphere-mood would have driven — the colour variety survives,
+       the motion doesn't need to.
+       Hex values here are duplicated from home.blade.php's data-sphere-mood
+       attributes on purpose, not read from them — keep the two in sync by
+       hand if a section's mood colour changes. */
+    #about {
+        background: radial-gradient(60% 50% at 15% 20%, color-mix(in oklab, #3147c9 16%, transparent), transparent 70%);
+    }
+    #services {
+        background: radial-gradient(60% 50% at 85% 22%, color-mix(in oklab, #1f8fe6 16%, transparent), transparent 70%);
+    }
+    #skills {
+        background: radial-gradient(60% 50% at 15% 22%, color-mix(in oklab, #1043b8 18%, transparent), transparent 70%);
+    }
+    #work {
+        background: radial-gradient(60% 50% at 85% 22%, color-mix(in oklab, #0ea8c4 16%, transparent), transparent 70%);
+    }
+    #start {
+        background: radial-gradient(60% 50% at 15% 22%, color-mix(in oklab, #4f93f5 18%, transparent), transparent 70%);
+    }
 }
 
 /* --- Stage sections -------------------------------------------------- */
@@ -233,9 +316,90 @@
     margin-left: auto;
 }
 
+/* Same recipe as .stage-card, wider — for long-form content (a case study,
+   a form) rather than the homepage's alternating-card layout. */
+.stage-card.stage-card--wide {
+    max-width: 48rem;
+}
+
 @media (max-width: 767px) {
     .stage-card[data-side='right'] {
         margin-left: 0;
+    }
+}
+
+/* A single pill style used everywhere a tag/tech-stack chip appears, instead
+   of each page inventing its own slate/brand variant. */
+.tag-pill {
+    display: inline-flex;
+    align-items: center;
+    border-radius: 9999px;
+    background: var(--color-brand-50);
+    border: 1px solid var(--color-brand-100);
+    padding: 0.3rem 0.75rem;
+    font-family: var(--font-mono);
+    font-size: 0.6875rem;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: var(--color-brand-600);
+    transition:
+        transform 0.2s ease,
+        border-color 0.2s ease,
+        background-color 0.2s ease;
+}
+
+.tag-pill:hover {
+    transform: translateY(-1px) scale(1.04);
+    border-color: var(--color-brand-300);
+    background: var(--color-brand-100);
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .tag-pill {
+        transition: none;
+    }
+
+    .tag-pill:hover {
+        transform: none;
+    }
+}
+
+/* The icon-only sidebar rail's label — carries the text an icon alone can't,
+   so it has to appear reliably on both hover and keyboard focus (a mouse-only
+   tooltip would make the rail unusable without a visible label for anyone
+   tabbing through it). */
+.sidebar-tooltip {
+    position: absolute;
+    left: calc(100% + 0.75rem);
+    top: 50%;
+    transform: translate(-4px, -50%);
+    white-space: nowrap;
+    border-radius: 0.5rem;
+    border: 1px solid var(--color-slate-200);
+    background: color-mix(in oklab, white 95%, transparent);
+    backdrop-filter: blur(8px);
+    padding: 0.375rem 0.75rem;
+    font-size: 0.8125rem;
+    font-weight: 500;
+    color: var(--color-slate-700);
+    box-shadow: 0 8px 24px -8px rgb(15 23 42 / 0.18);
+    opacity: 0;
+    pointer-events: none;
+    transition:
+        opacity 0.15s ease,
+        transform 0.15s ease;
+}
+
+.group:hover > .sidebar-tooltip,
+.group:focus-visible > .sidebar-tooltip {
+    opacity: 1;
+    transform: translate(0, -50%);
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .sidebar-tooltip {
+        transition: opacity 0.15s ease;
+        transform: translate(0, -50%);
     }
 }
 
@@ -305,18 +469,38 @@
     border-color: var(--color-brand-600);
 }
 
-/* Clear the fixed sidebar, which otherwise sits over both of these. */
+/* Clear the fixed sidebar (now 5rem/lg:w-20), which otherwise sits over both
+   of these. .section-caption's offset is half the sidebar width, to recentre
+   the caption within the content area to the right of the rail rather than
+   the full viewport. */
 @media (min-width: 1024px) {
     .motion-toggle {
-        left: calc(16rem + clamp(16px, 2vw, 32px));
+        left: calc(5rem + clamp(16px, 2vw, 32px));
     }
 
     .section-caption {
-        left: calc(50% + 8rem);
+        left: calc(50% + 2.5rem);
     }
 }
 
 @media (max-width: 1023px) {
+    .chapter-rail,
+    .section-caption {
+        display: none;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    /* Both only ever reflect live scroll state (the active rail dot, the
+       current section's caption text) via the per-frame loop in app.js,
+       which never runs without the canvas — frozen at their initial markup
+       value for the whole page, which reads as wrong/stale rather than
+       simply static. Must come after the plain .chapter-rail/.section-caption
+       definitions above, not grouped with the other reduced-motion rules
+       earlier in the file — equal-specificity rules resolve by source
+       order regardless of which one's gated by a media query, so placed
+       earlier this block would have lost to the later plain definition
+       and silently done nothing. */
     .chapter-rail,
     .section-caption {
         display: none;
@@ -334,6 +518,20 @@
 
 .animate-marquee {
     animation: marquee 28s linear infinite;
+}
+
+/* Cross-document view transitions: a plain cross-fade between pages so
+   clicking through to a project or the contact form doesn't feel like
+   landing on a different site. No-op in browsers that don't support it yet
+   (Safari, older Firefox) — navigation just happens instantly as before. */
+@view-transition {
+    navigation: auto;
+}
+
+::view-transition-old(root),
+::view-transition-new(root) {
+    animation-duration: 0.32s;
+    animation-timing-function: ease;
 }
 
 html {

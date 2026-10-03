@@ -11,6 +11,10 @@ class HomeController extends Controller
     {
         return view('home', [
             'projects' => Project::query()->latest()->take(6)->get(),
+            // Drives a small credibility line in the hero — a live count so
+            // it stays accurate as projects are added, rather than a number
+            // hand-typed into the view that quietly goes stale.
+            'projectCount' => Project::query()->count(),
         ]);
     }
 }

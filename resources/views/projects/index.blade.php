@@ -4,11 +4,11 @@
 @section('description', 'A collection of Laravel, PHP, and TailwindCSS projects built for real clients.')
 
 @section('content')
-    <x-section class="pt-16 pb-28 sm:pt-20 sm:pb-32">
-        <div data-animate>
-            <x-eyebrow>Work</x-eyebrow>
-            <h1 class="mt-4 font-serif text-3xl font-medium text-slate-900 sm:text-4xl">Case studies</h1>
-            <p class="mt-2 max-w-2xl text-slate-600">Projects I've built as a freelance full-stack developer.</p>
+    <x-section class="stage-section">
+        <div data-animate class="max-w-2xl">
+            <p class="font-mono text-xs uppercase tracking-[0.14em] text-brand-600">Work</p>
+            <h1 data-scramble class="mt-3 font-serif text-4xl font-medium text-slate-900 sm:text-5xl">Case studies</h1>
+            <p class="mt-4 text-slate-600">Projects I've built as a freelance full-stack developer.</p>
         </div>
 
         @if ($projects->isEmpty())

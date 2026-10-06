@@ -54,9 +54,26 @@
          section read as its own scene rather than one continuous backdrop. --}}
     <div aria-hidden="true" class="stage-blob stage-blob--c"></div>
     @if (request()->routeIs('home'))
-        <canvas id="hero-sphere" aria-hidden="true" class="stage-canvas"></canvas>
+        @php
+            // About's particle-portrait effect is optional: drop a photo at
+            // public/images/portrait.(jpg|png|webp) and it switches itself on.
+            // Resolved here rather than probed from JS so a site without one
+            // doesn't fire 404s into every visitor's console.
+            $portrait = collect(['jpg', 'png', 'webp'])
+                ->map(fn ($ext) => "images/portrait.{$ext}")
+                ->first(fn ($path) => is_file(public_path($path)));
+        @endphp
+        <canvas
+            id="hero-sphere"
+            aria-hidden="true"
+            class="stage-canvas"
+            @if ($portrait) data-portrait="{{ asset($portrait) }}" @endif
+        ></canvas>
     @endif
     <div aria-hidden="true" class="stage-grain"></div>
+    {{-- Darkened corners once the page turns blue — see .stage-vignette.
+         Last of the z-0 background siblings so it sits over the grain. --}}
+    <div aria-hidden="true" class="stage-vignette"></div>
 
     @if (request()->routeIs('home'))
         {{-- One-time "opening curtain": as you scroll from the hero into

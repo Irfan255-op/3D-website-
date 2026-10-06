@@ -11,6 +11,23 @@
     --mood-r: 21;
     --mood-g: 87;
     --mood-b: 232;
+
+    /* The page's shared breath. app.js writes --breath (0..1) every frame
+       from the same sine the orb swells on, so anything using it is in
+       phase with the 3D scene rather than merely the same speed. It only
+       updates where the scene runs (homepage, motion allowed), so every
+       use needs a sensible fallback and the keyframe versions below stay
+       as the default for pages and visitors without it.
+       --breath-duration mirrors BREATH_SECONDS in app.js — keep in sync. */
+    --breath: 0.5;
+    --breath-duration: 3.6s;
+}
+
+/* Switched on by app.js once the WebGL scene is actually live, so only
+   then do the CSS pulses hand over from their own keyframes to --breath. */
+.has-breath .status-dot {
+    animation: none;
+    box-shadow: 0 0 0 calc(var(--breath) * 9px) rgb(34 197 94 / calc(0.5 - var(--breath) * 0.5));
 }
 
 @theme {
@@ -97,10 +114,27 @@
 .stage-ambient,
 .stage-blob,
 .stage-canvas,
-.stage-grain {
+.stage-grain,
+.stage-vignette {
     position: fixed;
     z-index: 0;
     pointer-events: none;
+}
+
+/* Darkened corners. The blue curtain is a clean mathematical gradient,
+   which is exactly why it reads as rendered rather than photographed —
+   a vignette (and the heavier grain below) is what gives it the falloff
+   of something shot through a lens. Only on the blue: over the pale hero
+   it would just look like a dirty screen. */
+.stage-vignette {
+    inset: 0;
+    opacity: 0;
+    background: radial-gradient(ellipse 85% 75% at 50% 45%, transparent 40%, rgb(3 16 48 / 0.42) 100%);
+    transition: opacity 0.8s ease;
+}
+
+.is-blue .stage-vignette {
+    opacity: 1;
 }
 
 /* A single huge, slow gradient spanning several page-heights, nudged by
@@ -127,9 +161,14 @@
        instead of a fixed brand shade, so it shifts subtly as you scroll
        through different "scenes." The other two stay fixed brand accents —
        enough constancy to keep it reading as one site, not a different
-       palette every section. */
+       palette every section.
+       The mood layers were originally a 16% whisper, which left every
+       section reading as the same blue once the curtain was behind them.
+       Two opposing mood gradients at far higher strength are what make
+       Skills genuinely feel deep indigo and Work genuinely feel teal. */
     background:
-        radial-gradient(55% 45% at 12% 18%, rgb(var(--mood-r) var(--mood-g) var(--mood-b) / 16%) 0%, transparent 62%),
+        radial-gradient(60% 50% at 12% 18%, rgb(var(--mood-r) var(--mood-g) var(--mood-b) / 42%) 0%, transparent 66%),
+        radial-gradient(58% 48% at 88% 76%, rgb(var(--mood-r) var(--mood-g) var(--mood-b) / 30%) 0%, transparent 68%),
         radial-gradient(50% 42% at 88% 78%, color-mix(in oklab, var(--color-brand-cyan) 14%, transparent) 0%, transparent 65%),
         radial-gradient(42% 38% at 55% 100%, color-mix(in oklab, var(--color-brand-500) 10%, transparent) 0%, transparent 70%);
 }
@@ -239,6 +278,12 @@
     animation: stage-grain 0.9s steps(3) infinite;
 }
 
+/* Heavier over the blue, where a flat saturated field shows banding and
+   needs the dither far more than the pale hero does. */
+.is-blue .stage-grain {
+    opacity: 0.17;
+}
+
 @keyframes stage-grain {
     0% {
         transform: translate(0, 0);
@@ -300,7 +345,41 @@
 /* --- Stage sections -------------------------------------------------- */
 
 .stage-section {
+    position: relative;
     padding: clamp(72px, 10vh, 116px) clamp(16px, 6vw, 64px);
+}
+
+/* The section's number, set enormous and almost invisible behind its card.
+   Pure decoration — the readable version is in each card's eyebrow line. */
+.section-numeral {
+    position: absolute;
+    top: clamp(8px, 3vh, 48px);
+    left: clamp(16px, 6vw, 64px);
+    z-index: -1;
+    font-family: var(--font-serif);
+    font-size: clamp(9rem, 26vw, 24rem);
+    font-weight: 700;
+    line-height: 0.8;
+    letter-spacing: -0.04em;
+    color: rgb(15 23 42 / 0.05);
+    pointer-events: none;
+    user-select: none;
+    transition: color 0.5s ease;
+}
+
+.is-blue .section-numeral {
+    color: rgb(255 255 255 / 0.07);
+}
+
+/* The numeral sits opposite its card, in the space the 3D shape occupies,
+   so it reads as a watermark on the page rather than being hidden behind an
+   opaque panel. Left is the default (cards on the right); sections whose
+   card is on the left push it over. The bare panel is excluded — having no
+   background of its own, its numeral shows through from directly behind the
+   title, which is where an editorial folio number belongs. */
+.stage-section:has(.stage-card:not([data-side='right']):not(.stage-card--bare)) .section-numeral {
+    left: auto;
+    right: clamp(16px, 6vw, 64px);
 }
 
 /* Registered so it can transition — the spotlight fades in/out by animating
@@ -318,6 +397,13 @@
    by initCardSpotlight() in app.js), faded in on hover via --spot-o. */
 .stage-card {
     position: relative;
+    /* Also declared here, not only as the @property initial-value. Without
+       @property support --spot-o would be undefined, the calc() inside the
+       spotlight gradient would be invalid at computed-value time, and that
+       invalidates the *entire* background declaration — leaving a
+       transparent card with unreadable text over the blue. This way the
+       gradient always resolves; only the transition is lost. */
+    --spot-o: 0;
     max-width: 34rem;
     border-radius: 1.5rem;
     border: 1px solid color-mix(in oklab, var(--color-slate-200) 80%, transparent);
@@ -357,9 +443,182 @@
     max-width: 48rem;
 }
 
+/* Two columns once there's room: the skill list beside its explanation
+   rather than stacked, which is what makes this section read differently
+   from the single-column cards either side of it. */
+.stage-card.stage-card--split {
+    max-width: 44rem;
+}
+
+.stage-card__columns {
+    display: grid;
+    gap: 1.5rem;
+    margin-top: 1.75rem;
+}
+
+@media (min-width: 640px) {
+    .stage-card__columns {
+        grid-template-columns: 1.15fr 1fr;
+        gap: 2rem;
+    }
+}
+
+/* No card at all: content sits straight on the blue. The one break in the
+   card-on-alternating-sides rhythm every other section follows. Only safe
+   because everything from About onward has the blue curtain behind it —
+   see the reduced-motion block below, where that curtain never runs. */
+.stage-card.stage-card--bare {
+    /* Narrow enough that the accordion's rules and toggles stop short of
+       the orb rather than running underneath it. */
+    max-width: 39rem;
+    border: none;
+    background: none;
+    box-shadow: none;
+    backdrop-filter: none;
+    padding-left: 0;
+    padding-right: 0;
+    color: white;
+}
+
+.stage-card--bare h2,
+.stage-card--bare h3 {
+    color: white;
+}
+
+.stage-card--bare > p:first-child {
+    color: rgb(255 255 255 / 0.65);
+}
+
+.stage-card--bare .service-item {
+    border-top-color: rgb(255 255 255 / 0.2);
+}
+
+.stage-card--bare .service-item + .service-item,
+.stage-card--bare [data-stagger] {
+    border-bottom-color: rgb(255 255 255 / 0.2);
+}
+
+.stage-card--bare .service-index {
+    color: rgb(255 255 255 / 0.5);
+}
+
+.stage-card--bare .service-body p {
+    color: rgb(255 255 255 / 0.8);
+}
+
+.stage-card--bare .service-toggle {
+    border-color: rgb(255 255 255 / 0.4);
+}
+
+.stage-card--bare .service-toggle::before,
+.stage-card--bare .service-toggle::after {
+    background: white;
+}
+
+.stage-card--bare .service-summary:hover .service-toggle {
+    border-color: white;
+}
+
+.stage-card--bare .service-item[open] .service-toggle {
+    background: white;
+    border-color: white;
+}
+
+.stage-card--bare .service-item[open] .service-toggle::before,
+.stage-card--bare .service-item[open] .service-toggle::after {
+    background: var(--color-brand-700);
+}
+
+/* The tag pills keep their light fill, which reads correctly as a chip on
+   blue — but the border has to lift off the brand palette to stay visible. */
+.stage-card--bare .tag-pill {
+    border-color: rgb(255 255 255 / 0.5);
+}
+
+@media (prefers-reduced-motion: reduce) {
+    /* No canvas means no blue curtain, so white-on-white would be
+       invisible. The card comes back and every override above is undone. */
+    .stage-card.stage-card--bare {
+        max-width: 38rem;
+        border: 1px solid color-mix(in oklab, var(--color-slate-200) 80%, transparent);
+        background: linear-gradient(168deg, rgb(255 255 255 / 0.9) 0%, rgb(255 255 255 / 0.72) 100%);
+        box-shadow:
+            inset 0 1px 0 rgb(255 255 255 / 0.85),
+            0 28px 64px -30px rgb(12 34 96 / 0.42);
+        backdrop-filter: blur(18px) saturate(1.35);
+        padding-left: clamp(1.75rem, 4vw, 2.75rem);
+        padding-right: clamp(1.75rem, 4vw, 2.75rem);
+        color: inherit;
+    }
+
+    .stage-card--bare h2,
+    .stage-card--bare h3 {
+        color: var(--color-slate-900);
+    }
+
+    .stage-card--bare > p:first-child {
+        color: var(--color-brand-600);
+    }
+
+    .stage-card--bare .service-body p {
+        color: var(--color-slate-600);
+    }
+
+    .stage-card--bare .service-item,
+    .stage-card--bare [data-stagger] {
+        border-color: color-mix(in oklab, var(--color-slate-900) 10%, transparent);
+    }
+
+    .stage-card--bare .service-index {
+        color: color-mix(in oklab, var(--color-brand-600) 70%, transparent);
+    }
+
+    .stage-card--bare .service-toggle {
+        border-color: var(--color-brand-200);
+    }
+
+    .stage-card--bare .service-toggle::before,
+    .stage-card--bare .service-toggle::after {
+        background: var(--color-brand-600);
+    }
+
+    .stage-card--bare .service-item[open] .service-toggle {
+        background: var(--color-brand-600);
+        border-color: var(--color-brand-600);
+    }
+
+    .stage-card--bare .service-item[open] .service-toggle::before,
+    .stage-card--bare .service-item[open] .service-toggle::after {
+        background: white;
+    }
+
+    .stage-card--bare .tag-pill {
+        border-color: var(--color-brand-100);
+    }
+}
+
 @media (max-width: 767px) {
     .stage-card[data-side='right'] {
         margin-left: 0;
+    }
+}
+
+/* Below the sidebar breakpoint the 3D shape sits above the card rather than
+   behind it (measureWaypoints' adapt() lifts it), so each section opens with
+   clear space for it instead of hiding it behind copy. */
+@media (max-width: 1023px) {
+    .stage-section {
+        padding-top: 46vh;
+    }
+
+    /* The finale is the mark alone — it needs the height, not the offset. */
+    .stage-section.finale {
+        padding-top: clamp(72px, 10vh, 116px);
+    }
+
+    .section-numeral {
+        font-size: clamp(7rem, 34vw, 13rem);
+        top: 36vh;
     }
 }
 
@@ -554,7 +813,7 @@
     margin: 0 auto 12px;
     background: linear-gradient(to bottom, transparent, currentColor);
     transform-origin: top;
-    animation: cue-drop 2.4s cubic-bezier(0.65, 0, 0.35, 1) infinite;
+    animation: cue-drop var(--breath-duration) cubic-bezier(0.65, 0, 0.35, 1) infinite;
 }
 
 @keyframes cue-drop {
@@ -574,6 +833,64 @@
         transform: scaleY(0);
         transform-origin: bottom;
     }
+}
+
+/* One-time "this is interactive" nudge, positioned beside the orb each
+   frame by initOrbHint(). top/left stay at 0 because the whole position
+   comes from the transform it writes. */
+.orb-hint {
+    position: fixed;
+    top: 0;
+    left: 0;
+    z-index: 28;
+    margin: 0;
+    padding: 8px 15px;
+    border-radius: 9999px;
+    border: 1px solid color-mix(in oklab, var(--color-slate-900) 12%, transparent);
+    background: color-mix(in oklab, white 82%, transparent);
+    backdrop-filter: blur(8px);
+    box-shadow: 0 10px 30px -12px rgb(15 23 42 / 0.3);
+    font-family: var(--font-mono);
+    font-size: 11px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--color-slate-700);
+    white-space: nowrap;
+    pointer-events: none;
+    opacity: 0;
+    transition: opacity 0.5s ease;
+}
+
+.orb-hint.is-visible {
+    opacity: 1;
+    animation: orb-hint-bob 2.6s ease-in-out infinite;
+}
+
+@keyframes orb-hint-bob {
+    0%,
+    100% {
+        margin-top: 0;
+    }
+    50% {
+        margin-top: -7px;
+    }
+}
+
+/* The rail is draggable as a scrubber for the whole page (initRailScrub).
+   Its links must not be draggable themselves or the browser's native link
+   drag hijacks the gesture — see the dragstart guard in app.js. */
+.chapter-rail {
+    cursor: grab;
+    touch-action: none;
+    user-select: none;
+}
+
+.chapter-rail a {
+    -webkit-user-drag: none;
+}
+
+.chapter-rail.is-scrubbing {
+    cursor: grabbing;
 }
 
 .motion-toggle {
@@ -647,7 +964,7 @@
     flex-shrink: 0;
     border-radius: 9999px;
     background: #22c55e;
-    animation: status-ping 2.2s ease-out infinite;
+    animation: status-ping var(--breath-duration) ease-out infinite;
 }
 
 @keyframes status-ping {
@@ -1106,4 +1423,62 @@ select:focus-visible,
 
 #cursor-ring.is-labelled #cursor-ring-label {
     opacity: 1;
+}
+
+/* Over a draggable 3D shape the ring reads "Drag" (set from app.js),
+   dark-on-pearl rather than the white-on-blue of a link label. */
+#cursor-ring.is-orb #cursor-ring-label {
+    opacity: 1;
+    color: var(--color-slate-800);
+}
+
+/* While grabbing: the ring tightens and the hint gets out of the way. */
+#cursor-ring.is-grabbing #cursor-ring-inner {
+    transform: scale(1.1);
+}
+
+#cursor-ring.is-grabbing #cursor-ring-label {
+    opacity: 0;
+}
+
+.is-dragging-orb,
+.is-dragging-orb * {
+    user-select: none;
+}
+
+/* --- Finale ----------------------------------------------------------- */
+
+/* A tall, card-less band the 3D mark forms in; just a colophon at its foot. */
+.finale {
+    display: flex;
+    min-height: 92vh;
+    align-items: flex-end;
+    justify-content: center;
+}
+
+.finale__colophon {
+    max-width: 36rem;
+    text-align: center;
+    font-family: var(--font-mono);
+    font-size: 11px;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    color: var(--color-slate-500);
+    transition: color 0.4s ease;
+}
+
+.is-blue .finale__colophon {
+    color: rgb(255 255 255 / 0.75);
+}
+
+/* Breathes with the mark forming above it. */
+.has-breath .finale__colophon {
+    opacity: calc(0.62 + var(--breath) * 0.38);
+}
+
+@media (prefers-reduced-motion: reduce) {
+    /* Without the 3D scene there's nothing to form here. */
+    #finale {
+        display: none;
+    }
 }

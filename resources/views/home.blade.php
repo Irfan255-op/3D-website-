@@ -67,6 +67,10 @@
 
     <button type="button" class="motion-toggle" id="motion-toggle" aria-pressed="false">&#9208; Pause motion</button>
 
+    {{-- One-time nudge that the orb is interactive. Positioned beside it and
+         removed for good after it's seen or acted on (initOrbHint). --}}
+    <p class="orb-hint" id="orb-hint" aria-hidden="true"></p>
+
     <x-section bleed id="top" data-sphere-hero data-sphere-mood="#1557e8" class="relative min-h-[88vh] sm:min-h-[92vh]">
         <div class="relative z-10 flex min-h-[88vh] items-center px-6 py-24 sm:min-h-[92vh] sm:px-8 lg:px-16">
             <div data-hero-content class="w-full max-w-2xl text-center lg:text-left">
@@ -113,11 +117,13 @@
         data-sphere-rot="0.35"
         data-sphere-spike="1"
         data-sphere-bands="0"
-        data-sphere-mood="#3147c9"
+        data-sphere-mood="#2b3bd6"
     >
+        <span class="section-numeral" aria-hidden="true">01</span>
+
         <div data-animate class="stage-card" data-side="right">
             <p class="font-mono text-xs uppercase tracking-[0.14em] text-brand-600">01 &mdash; The developer</p>
-            <h2 data-scramble class="mt-3 font-serif text-4xl font-medium text-slate-900 sm:text-5xl">Hi, I'm Shaikh Shoeb Akhtar</h2>
+            <h2 data-scramble data-melt class="mt-3 font-serif text-5xl font-medium leading-[1.05] text-slate-900 sm:text-6xl">Hi, I'm Shaikh Shoeb Akhtar</h2>
             <p class="mt-5 text-slate-600">
                 A full-stack developer specializing in responsive, scalable applications for startups and businesses &mdash; from real-time infrastructure and API architecture to the pixel-level details of the interface.
                 I work directly with clients to turn ideas into production-ready products.
@@ -142,11 +148,17 @@
         data-sphere-rot="-0.4"
         data-sphere-spike="0"
         data-sphere-bands="1"
-        data-sphere-mood="#1f8fe6"
+        data-sphere-mood="#1b9fe8"
     >
-        <div data-animate class="stage-card">
-            <p class="font-mono text-xs uppercase tracking-[0.14em] text-brand-600">02 &mdash; What I offer</p>
-            <h2 data-scramble class="mt-3 font-serif text-4xl font-medium text-slate-900 sm:text-5xl">Services</h2>
+        <span class="section-numeral" aria-hidden="true">02</span>
+
+        {{-- The one section with no card: the accordion sits straight on the
+             blue, which breaks the card-on-alternating-sides rhythm that
+             every other section shares. Reverts to a normal card under
+             reduced motion, where there is no blue to sit on (app.css). --}}
+        <div data-animate class="stage-card stage-card--bare">
+            <p class="font-mono text-xs uppercase tracking-[0.14em]">02 &mdash; What I offer</p>
+            <h2 data-scramble data-melt class="mt-3 font-serif text-6xl font-medium leading-[0.95] sm:text-7xl xl:text-8xl">Services</h2>
 
             {{-- An exclusive accordion (shared `name`: opening one closes the
                  others) built on native <details>, so it's keyboard- and
@@ -187,24 +199,30 @@
         data-sphere-spike="0"
         data-sphere-bands="0"
         data-sphere-gem="1"
-        data-sphere-mood="#1043b8"
+        data-sphere-mood="#0d2fa8"
     >
-        <div data-animate class="stage-card" data-side="right">
+        <span class="section-numeral" aria-hidden="true">03</span>
+
+        {{-- Two columns rather than one, so the stack reads as a list beside
+             its explanation instead of another single-column card. --}}
+        <div data-animate class="stage-card stage-card--split" data-side="right">
             <p class="font-mono text-xs uppercase tracking-[0.14em] text-brand-600">03 &mdash; Core skills</p>
-            <h2 data-scramble class="mt-3 font-serif text-4xl font-medium text-slate-900 sm:text-5xl">Tools I build with</h2>
+            <h2 data-scramble data-melt class="mt-3 font-serif text-4xl font-medium text-slate-900 sm:text-5xl">Tools I build with</h2>
 
-            <ul class="mt-6 flex flex-wrap gap-2" data-stagger>
-                @foreach ($skills as $skill)
-                    <li
-                        class="tag-pill cursor-default outline-none focus-visible:ring-2 focus-visible:ring-brand-400"
-                        data-skill-index="{{ $loop->index }}"
-                    >{{ $skill['title'] }}</li>
-                @endforeach
-            </ul>
+            <div class="stage-card__columns">
+                <ul class="flex flex-wrap content-start gap-2" data-stagger>
+                    @foreach ($skills as $skill)
+                        <li
+                            class="tag-pill cursor-default outline-none focus-visible:ring-2 focus-visible:ring-brand-400"
+                            data-skill-index="{{ $loop->index }}"
+                        >{{ $skill['title'] }}</li>
+                    @endforeach
+                </ul>
 
-            <p class="mt-5 text-slate-600">
-                A focused stack, used deeply &mdash; LiveKit and Laravel Reverb for low-latency streaming, Razorpay and Paystack for billing, and dependency-free front ends that stay fast on any device.
-            </p>
+                <p class="text-slate-600">
+                    A focused stack, used deeply &mdash; LiveKit and Laravel Reverb for low-latency streaming, Razorpay and Paystack for billing, and dependency-free front ends that stay fast on any device.
+                </p>
+            </div>
         </div>
     </x-section>
 
@@ -220,18 +238,28 @@
         data-sphere-spike="0"
         data-sphere-bands="0"
         data-sphere-discs="1"
-        data-sphere-mood="#0ea8c4"
+        data-sphere-mood="#07bdb4"
     >
+        <span class="section-numeral" aria-hidden="true">04</span>
+
         <div data-animate class="stage-card">
             <p class="font-mono text-xs uppercase tracking-[0.14em] text-brand-600">04 &mdash; Selected work</p>
-            <h2 data-scramble class="mt-3 font-serif text-4xl font-medium text-slate-900 sm:text-5xl">The digital experiences</h2>
+            <h2 data-scramble data-melt class="mt-3 font-serif text-5xl font-medium leading-[1.02] text-slate-900 sm:text-6xl">The digital experiences</h2>
 
             @if ($projects->isEmpty())
                 <p class="mt-6 text-slate-500">Case studies are coming soon.</p>
             @else
+                {{-- data-device picks the shape the 3D blocks assemble into
+                     while a row is hovered (DEVICE_LAYOUTS in app.js). --}}
                 <div class="mt-6 divide-y divide-slate-900/10 border-y border-slate-900/10" data-stagger>
                     @foreach ($projects as $project)
-                        <a href="{{ route('work.show', $project) }}" data-cursor-text="View" class="work-row group">
+                        <a
+                            href="{{ route('work.show', $project) }}"
+                            data-cursor-text="View"
+                            data-device="{{ ['phone', 'laptop', 'monitor', 'tablet'][$loop->index % 4] }}"
+                            @if ($project->image) data-shot="{{ Storage::url($project->image) }}" @endif
+                            class="work-row group"
+                        >
                             <span class="work-row__index" aria-hidden="true">{{ sprintf('%02d', $loop->iteration) }}</span>
                             <div class="min-w-0 flex-1">
                                 <h3 class="font-serif text-lg font-medium text-slate-900 transition-colors duration-300 group-hover:text-brand-700">
@@ -265,11 +293,13 @@
         data-sphere-spike="0"
         data-sphere-bands="0"
         data-sphere-beacon="1"
-        data-sphere-mood="#4f93f5"
+        data-sphere-mood="#5aa9ff"
     >
+        <span class="section-numeral" aria-hidden="true">05</span>
+
         <div data-animate class="stage-card" data-side="right">
             <p class="font-mono text-xs uppercase tracking-[0.14em] text-brand-600">05 &mdash; Let's build</p>
-            <h2 data-scramble class="mt-3 font-serif text-4xl font-medium text-slate-900 sm:text-5xl">Have a project in mind?</h2>
+            <h2 data-scramble data-melt class="mt-3 font-serif text-4xl font-medium text-slate-900 sm:text-5xl">Have a project in mind?</h2>
             <p class="mt-5 text-slate-600">
                 Tell me what you're building and I'll come back with next steps &mdash; usually within a day.
             </p>
@@ -296,5 +326,27 @@
                 </svg>
             </a>
         </div>
+    </x-section>
+
+    {{-- Finale: every shape from the journey streams together into the 3D
+         shaikh.labs mark — the particle swarm's last morph (app.js). A
+         waypoint with no card: the mark is the content. Hidden under
+         reduced motion (app.css) and removed if WebGL fails to load, since
+         without the scene it would be an empty band. --}}
+    <x-section
+        bleed
+        id="finale"
+        class="stage-section finale"
+        data-caption="Thanks for scrolling"
+        data-sphere-x="0"
+        data-sphere-y="0.12"
+        data-sphere-scale="1.1"
+        data-sphere-rot="0"
+        data-sphere-spike="0"
+        data-sphere-bands="0"
+        data-sphere-logo="1"
+        data-sphere-mood="#1557e8"
+    >
+        <p data-animate class="finale__colophon">shaikh.labs &mdash; designed &amp; built from scratch with Laravel, GSAP &amp; Three.js</p>
     </x-section>
 @endsection

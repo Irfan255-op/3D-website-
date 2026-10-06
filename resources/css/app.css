@@ -114,18 +114,16 @@
 .stage-ambient,
 .stage-blob,
 .stage-canvas,
-.stage-grain,
 .stage-vignette {
     position: fixed;
     z-index: 0;
     pointer-events: none;
 }
 
-/* Darkened corners. The blue curtain is a clean mathematical gradient,
-   which is exactly why it reads as rendered rather than photographed —
-   a vignette (and the heavier grain below) is what gives it the falloff
-   of something shot through a lens. Only on the blue: over the pale hero
-   it would just look like a dirty screen. */
+/* Darkened corners, giving the clean mathematical gradient of the blue
+   curtain some of the falloff of something shot through a lens. Only on
+   the blue: over the pale hero it would just look like a dirty screen.
+   (A film-grain layer used to sit alongside this; removed per request.) */
 .stage-vignette {
     inset: 0;
     opacity: 0;
@@ -266,42 +264,8 @@
     }
 }
 
-.stage-grain {
-    inset: -50%;
-    /* Low opacity on purpose — app.js swaps the background-image for a
-       properly dithered noise texture, which has far more contrast per
-       pixel than this SVG fallback, so it needs a much lighter hand here. */
-    opacity: 0.1;
-    mix-blend-mode: multiply;
-    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='180' height='180' filter='url(%23n)' opacity='0.22'/%3E%3C/svg%3E");
-    background-repeat: repeat;
-    animation: stage-grain 0.9s steps(3) infinite;
-}
-
-/* Heavier over the blue, where a flat saturated field shows banding and
-   needs the dither far more than the pale hero does. */
-.is-blue .stage-grain {
-    opacity: 0.17;
-}
-
-@keyframes stage-grain {
-    0% {
-        transform: translate(0, 0);
-    }
-    33% {
-        transform: translate(-2%, 1%);
-    }
-    66% {
-        transform: translate(1%, -2%);
-    }
-    100% {
-        transform: translate(0, 0);
-    }
-}
-
 @media (prefers-reduced-motion: reduce) {
-    .stage-blob,
-    .stage-grain {
+    .stage-blob {
         animation: none;
     }
 

@@ -35,11 +35,11 @@
         <img src="{{ asset('images/logo.svg') }}" alt="" class="page-loader-logo" width="120" height="120">
     </div>
 
-    {{-- Ambient stage background on every page — the slow wash, drifting
-         blobs, and grain. The WebGL sphere canvas joins them here too (not
-         inside <main>) so all five stay true siblings at the same z-index:0
-         stacking level — <main> has its own z-index:10 context, and a canvas
-         nested inside it would paint above the grain instead of under it.
+    {{-- Ambient stage background on every page — the slow wash, the drifting
+         blobs, and the vignette. The WebGL sphere canvas joins them here too
+         (not inside <main>) so they all stay true siblings at the same
+         z-index:0 stacking level — <main> has its own z-index:10 context, and
+         a canvas nested inside it would paint above them instead of under.
          The sphere itself (chapter rail, caption, motion toggle) stays
          homepage-only; it's wired to specific section waypoints that only
          exist there. --}}
@@ -70,9 +70,8 @@
             @if ($portrait) data-portrait="{{ asset($portrait) }}" @endif
         ></canvas>
     @endif
-    <div aria-hidden="true" class="stage-grain"></div>
     {{-- Darkened corners once the page turns blue — see .stage-vignette.
-         Last of the z-0 background siblings so it sits over the grain. --}}
+         Last of the z-0 background siblings, so it sits over the rest. --}}
     <div aria-hidden="true" class="stage-vignette"></div>
 
     @if (request()->routeIs('home'))

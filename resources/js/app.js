@@ -3019,6 +3019,33 @@ function buildHeroSphere(THREE, canvas, RoomEnvironment) {
         }
     }
 
+    // Every transition used to take the same journey: slide across, dip back
+    // a little, arrive. Six times. The shapes varied, the path never did —
+    // and a path repeated six times stops being motion and becomes a
+    // mechanism. Each handoff now gets its own flight through the scene,
+    // peaking mid-transition and resolving to nothing at either end, so the
+    // page reads as one object moving through a real space rather than a
+    // sprite being swapped between two marks.
+    //
+    // x/y/z are the detour at the peak, in world units (the camera sits at
+    // z 6.2, so positive z comes at you and negative recedes); roll/pitch/yaw
+    // are the attitude it flies in. Indexed by segment, so transition 1 is
+    // always the vault and transition 3 is always the long fall back.
+    const FLIGHT_PATHS = [
+        // Hero -> About. Mostly hidden behind the curtain, so: restrained.
+        { x: 0, y: 0.35, z: -0.9, roll: 0.12, pitch: 0.1, yaw: 0.2 },
+        // About -> Services. Vaults over the top and away.
+        { x: 0, y: 1.75, z: -2.6, roll: -0.5, pitch: -0.42, yaw: 0.7 },
+        // Services -> Skills. Swings low and close, passing the camera.
+        { x: 0, y: -1.15, z: 1.5, roll: 0.55, pitch: 0.3, yaw: -0.8 },
+        // Skills -> Work. Falls a long way back, small and distant.
+        { x: 0.5, y: 0.5, z: -4.2, roll: -0.3, pitch: 0.18, yaw: 1.3 },
+        // Work -> Contact. A wide spiral out toward the viewer.
+        { x: 1.3, y: 0.95, z: 0.9, roll: 0.7, pitch: -0.25, yaw: -0.55 },
+        // Contact -> finale. Rises and settles: the journey resolving.
+        { x: 0, y: 1.3, z: -1.8, roll: 0, pitch: -0.3, yaw: 0.4 },
+    ];
+
     // --- Adaptive quality -------------------------------------------------
     // This scene asks a lot: a 14k-particle swarm, a dust field, a 150-
     // segment shader orb evaluating eight ripple slots three times per
@@ -3389,15 +3416,31 @@ function buildHeroSphere(THREE, canvas, RoomEnvironment) {
         const travel = fromWaypoint && toWaypoint ? Math.min(1, Math.abs(toWaypoint.pose.x - fromWaypoint.pose.x) / 3.2) : 0;
         const crossing = compactView ? 0 : Math.sin(Math.PI * m) * travel;
         const travelRemaining = scrollTarget.x - scrollCurrent.x;
-        const bank = THREE.MathUtils.clamp(travelRemaining * 0.8, -0.55, 0.55) * crossing;
-        const tumble = THREE.MathUtils.clamp(travelRemaining * 0.35, -0.45, 0.45) * crossing;
-        const pitch = bank * 0.35;
-        const arcScale = 1 - crossing * 0.07;
-        const arcDepth = -crossing * 1.1;
-        const arcLift = crossing * 0.45;
+
+        // The flight path for this particular transition (see FLIGHT_PATHS).
+        // `bump` peaks mid-transition and is 0 at both ends, so the detour
+        // always dissolves cleanly back onto the resting pose.
+        const path = FLIGHT_PATHS[segment % FLIGHT_PATHS.length];
+        const bump = Math.sin(Math.PI * m) ** 1.15;
+        // Scrolling hard throws it further. The same journey taken slowly
+        // stays composed — the motion answers to how you move, which is what
+        // separates a system that feels alive from a canned animation.
+        const vigour = 1 + Math.min(smoothedVelocity * 0.012, 0.85);
+        // Compact view keeps the depth and height of each path but drops the
+        // sideways swing, where there is no room for it.
+        const reach = bump * vigour * (compactView ? 0.55 : 1);
+
+        const bank = (THREE.MathUtils.clamp(travelRemaining * 0.8, -0.55, 0.55) * crossing) + path.roll * reach;
+        const tumble = (THREE.MathUtils.clamp(travelRemaining * 0.35, -0.45, 0.45) * crossing) + path.yaw * reach;
+        const pitch = bank * 0.35 + path.pitch * reach;
+        // Depth does the shrinking, not an artificial scale multiplier: the
+        // object is genuinely further from the camera.
+        const arcScale = 1 - crossing * 0.05;
+        const arcLift = path.y * reach;
+        const arcDepth = path.z * reach;
         const stretch = crossing * 0.22;
 
-        sphere.position.x = scrollCurrent.x + pointerCurrent.x * 0.32 * heroPresence;
+        sphere.position.x = scrollCurrent.x + path.x * reach * (compactView ? 0 : 1) + pointerCurrent.x * 0.32 * heroPresence;
         sphere.position.y = scrollCurrent.y + intro.y - pointerCurrent.y * 0.22 * heroPresence + arcLift;
         sphere.position.z = arcDepth;
         sphere.scale.setScalar(scrollCurrent.scale * intro.scale * arcScale);
@@ -3691,42 +3734,6 @@ function initHeroLens() {
     hero.addEventListener('mouseleave', hide);
 }
 
-function initGrainTexture() {
-    const grain = document.querySelector('.stage-grain');
-
-    if (!grain) {
-        return;
-    }
-
-    // Independent per-pixel noise, not feTurbulence's fractal blotches — this
-    // is what makes it read as fine photographic grain instead of a tiled
-    // smooth-noise filter. Three averaged samples per pixel softens the
-    // harsh look of raw white noise into something closer to film stock.
-    const size = 200;
-    const canvas = document.createElement('canvas');
-    canvas.width = size;
-    canvas.height = size;
-
-    const ctx = canvas.getContext('2d');
-    const imageData = ctx.createImageData(size, size);
-
-    // Biased toward the light end (150-255, not 0-255): this layer sits under
-    // mix-blend-mode: multiply, where a dark pixel visibly darkens whatever
-    // is underneath it. Full-range noise multiplied over real content reads
-    // as harsh static; keeping it light makes the multiply only ever subtly
-    // dim, which is what actually looks like film grain.
-    for (let i = 0; i < imageData.data.length; i += 4) {
-        const v = Math.round(150 + ((Math.random() + Math.random() + Math.random()) / 3) * 105);
-        imageData.data[i] = v;
-        imageData.data[i + 1] = v;
-        imageData.data[i + 2] = v;
-        imageData.data[i + 3] = 255;
-    }
-
-    ctx.putImageData(imageData, 0, 0);
-    grain.style.backgroundImage = `url(${canvas.toDataURL()})`;
-}
-
 function initMagneticButtons() {
     const targets = document.querySelectorAll('[data-magnetic]');
 
@@ -3903,6 +3910,16 @@ function initOrbHint() {
 
     const place = () => {
         if (!visible) {
+            return;
+        }
+
+        // Also clears itself once the hero is behind you. The interaction
+        // listeners below cover wheel and touch, but keyboard navigation and
+        // the rail scrubber move the page without either — and a hint
+        // pointing at an orb you have already left reads as a stuck label.
+        if (window.scrollY > window.innerHeight * 0.5) {
+            dismiss();
+
             return;
         }
 
@@ -4272,7 +4289,9 @@ function initTextMelt() {
                 // Faded out well before the letter finishes its flight: the
                 // journey is the effect, but legible characters drifting
                 // across the body copy below just read as a layout bug.
-                span.style.opacity = (1 - clamp01(local * 1.7)).toFixed(3);
+                // Quicker than it was, now that the flight paths carry the
+                // orb much further and the letters have further to travel.
+                span.style.opacity = (1 - clamp01(local * 2.1)).toFixed(3);
             });
         };
 
@@ -4523,7 +4542,6 @@ document.addEventListener('DOMContentLoaded', () => {
     initScrollReveal();
     initScrambleReveal();
     initHeroSphere();
-    initGrainTexture();
     initHeroLens();
     initCustomCursor();
     initMagneticButtons();

@@ -122,7 +122,7 @@
         <span class="section-numeral" aria-hidden="true">01</span>
 
         <div data-animate class="stage-card" data-side="right">
-            <p class="section-eyebrow">01 &mdash; The developer</p>
+            <p class="section-eyebrow">The developer</p>
             <h2 data-scramble data-melt class="section-title mt-4">Hi, I'm Shaikh Shoeb Akhtar</h2>
             <p class="mt-5 text-slate-600">
                 A full-stack developer specializing in responsive, scalable applications for startups and businesses &mdash; from real-time infrastructure and API architecture to the pixel-level details of the interface.
@@ -155,7 +155,7 @@
         {{-- Nothing is boxed in a panel any more, so this section is no
              longer the exception it once was — it just runs wider. --}}
         <div data-animate class="stage-card stage-card--wide">
-            <p class="section-eyebrow">02 &mdash; What I offer</p>
+            <p class="section-eyebrow">What I offer</p>
             <h2 data-scramble data-melt class="section-title mt-4">Services</h2>
 
             {{-- An exclusive accordion (shared `name`: opening one closes the
@@ -204,7 +204,7 @@
         {{-- Two columns rather than one, so the stack reads as a list beside
              its explanation instead of another single-column card. --}}
         <div data-animate class="stage-card stage-card--split" data-side="right">
-            <p class="section-eyebrow">03 &mdash; Core skills</p>
+            <p class="section-eyebrow">Core skills</p>
             <h2 data-scramble data-melt class="section-title mt-4">Tools I build with</h2>
 
             <div class="stage-card__columns">
@@ -232,7 +232,7 @@
         data-sphere-x="2.1"
         data-sphere-y="-0.2"
         data-sphere-scale="1.6"
-        data-sphere-rot="-0.5"
+        data-sphere-rot="0"
         data-sphere-spike="0"
         data-sphere-bands="0"
         data-sphere-discs="1"
@@ -241,20 +241,17 @@
         <span class="section-numeral" aria-hidden="true">04</span>
 
         <div data-animate class="stage-card">
-            <p class="section-eyebrow">04 &mdash; Selected work</p>
+            <p class="section-eyebrow">Selected work</p>
             <h2 data-scramble data-melt class="section-title mt-4">The digital experiences</h2>
 
             @if ($projects->isEmpty())
                 <p class="mt-6 text-slate-500">Case studies are coming soon.</p>
             @else
-                {{-- data-device picks the shape the 3D blocks assemble into
-                     while a row is hovered (DEVICE_LAYOUTS in app.js). --}}
                 <div class="mt-6 divide-y divide-slate-900/10 border-y border-slate-900/10" data-stagger>
                     @foreach ($projects as $project)
                         <a
                             href="{{ route('work.show', $project) }}"
                             data-cursor-text="View"
-                            data-device="{{ ['phone', 'laptop', 'monitor', 'tablet'][$loop->index % 4] }}"
                             @if ($project->image) data-shot="{{ Storage::url($project->image) }}" @endif
                             class="work-row group"
                         >
@@ -296,7 +293,7 @@
         <span class="section-numeral" aria-hidden="true">05</span>
 
         <div data-animate class="stage-card" data-side="right">
-            <p class="section-eyebrow">05 &mdash; Let's build</p>
+            <p class="section-eyebrow">Let's build</p>
             <h2 data-scramble data-melt class="section-title mt-4">Have a project in mind?</h2>
             <p class="mt-5 text-slate-600">
                 Tell me what you're building and I'll come back with next steps &mdash; usually within a day.

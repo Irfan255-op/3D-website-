@@ -769,6 +769,9 @@ function buildHeroSphere(THREE, canvas, RoomEnvironment) {
     // creation rather than updated per frame, since it no longer needs to
     // track anything that changes.
     const RING_PALETTE = [new THREE.Color('#cfd0d6'), new THREE.Color('#f0f0f3')];
+    const RING_PALETTE_PAPER = [new THREE.Color('#6b6d75'), new THREE.Color('#9fa1a8')];
+    // Every material tinted by ring index, so tick() can re-blend them all.
+    const ringTints = [[], []];
 
     // Tilted at two different angles (not a shared one) rather than face-on
     // circles — reads more like two differently-inclined orbital planes
@@ -780,7 +783,7 @@ function buildHeroSphere(THREE, canvas, RoomEnvironment) {
         const ringColor = RING_PALETTE[i];
 
         const ringMaterial = new THREE.MeshBasicMaterial({
-            color: ringColor,
+            color: ringColor.clone(),
             transparent: true,
             // Roughly doubled from the original 0.18/0.12 — against a
             // saturated blue backdrop a hairline at the old opacity read as
@@ -797,11 +800,12 @@ function buildHeroSphere(THREE, canvas, RoomEnvironment) {
         const pivot = new THREE.Object3D();
         pivot.rotation.x = tilt;
 
-        const dotMaterial = new THREE.MeshBasicMaterial({ color: ringColor, transparent: true, opacity: 0.95 });
+        const dotMaterial = new THREE.MeshBasicMaterial({ color: ringColor.clone(), transparent: true, opacity: 0.95 });
         const dot = new THREE.Mesh(new THREE.SphereGeometry(i === 0 ? 0.042 : 0.03, 16, 16), dotMaterial);
         dot.position.x = radius;
 
-        const trailMaterial = new THREE.MeshBasicMaterial({ color: ringColor, transparent: true, opacity: 0.4 });
+        const trailMaterial = new THREE.MeshBasicMaterial({ color: ringColor.clone(), transparent: true, opacity: 0.4 });
+        ringTints[i].push(ringMaterial, dotMaterial, trailMaterial);
         const trail = new THREE.Mesh(
             new THREE.TorusGeometry(radius, i === 0 ? 0.018 : 0.013, 8, 60, 0.6),
             trailMaterial
@@ -815,76 +819,82 @@ function buildHeroSphere(THREE, canvas, RoomEnvironment) {
         sphere.add(pivot);
     });
 
-    function makeBandTexture(label) {
-        const textCanvas = document.createElement('canvas');
-        textCanvas.width = 2048;
-        textCanvas.height = 200;
+    // One chrome recipe for every section shape. Near-full metalness at low
+    // roughness is what turns the RoomEnvironment reflections into liquid
+    // metal — the material the reference sites are built on. Each shape
+    // gets its own instance so opacity and glow can be driven separately.
+    function chromeMaterial(extra = {}) {
+        return new THREE.MeshPhysicalMaterial({
+            color: new THREE.Color('#e3e3e7'),
+            metalness: 0.94,
+            roughness: 0.12,
+            clearcoat: 1,
+            clearcoatRoughness: 0.06,
+            iridescence: 0.18,
+            iridescenceIOR: 1.3,
+            emissive: new THREE.Color('#ffffff'),
+            emissiveIntensity: 0,
+            transparent: true,
+            opacity: 0,
+            depthWrite: false,
+            ...extra,
+        });
+    }
 
-        const ctx = textCanvas.getContext('2d');
-        ctx.fillStyle = 'rgba(246, 246, 247, 0.9)';
-        ctx.fillRect(0, 0, textCanvas.width, textCanvas.height);
-        ctx.fillStyle = 'rgba(10, 10, 12, 0.92)';
-        ctx.font = '600 112px ui-monospace, Menlo, Consolas, monospace';
-        ctx.textBaseline = 'middle';
+    // Services: a Möbius ribbon — one continuous chrome band with a half
+    // twist, so it has a single surface and a single edge, looping the orb.
+    // The lettered text bands it replaces were literal; this is the
+    // liquid-metal ribbon the references are made of, and the data packets
+    // ride its spine. Its centreline is the circle of radius RIBBON_RADIUS
+    // in the xz plane, which is exactly the ring the packets travel.
+    const RIBBON_RADIUS = 1.43;
+    const RIBBON_WIDTH = 0.3;
 
-        const unit = ctx.measureText(label).width;
+    function buildMobiusGeometry() {
+        const along = 260;
+        const across = 8;
+        const positions = [];
+        const uvs = [];
+        const indices = [];
 
-        for (let x = 0; x < textCanvas.width + unit; x += unit) {
-            ctx.fillText(label, x, textCanvas.height / 2 + 4);
+        for (let i = 0; i <= along; i += 1) {
+            const u = (i / along) * Math.PI * 2;
+
+            for (let j = 0; j <= across; j += 1) {
+                const v = (j / across - 0.5) * RIBBON_WIDTH;
+                const rr = RIBBON_RADIUS + v * Math.cos(u / 2);
+
+                positions.push(rr * Math.cos(u), v * Math.sin(u / 2), rr * Math.sin(u));
+                uvs.push(i / along, j / across);
+
+                if (i < along && j < across) {
+                    const a = i * (across + 1) + j;
+                    const b = a + across + 1;
+                    indices.push(a, b, a + 1, b, b + 1, a + 1);
+                }
+            }
         }
 
-        const texture = new THREE.CanvasTexture(textCanvas);
-        texture.wrapS = THREE.RepeatWrapping;
-        texture.wrapT = THREE.ClampToEdgeWrapping;
-        texture.repeat.set(2, 1);
-        texture.anisotropy = renderer.capabilities.getMaxAnisotropy();
+        const geometry = new THREE.BufferGeometry();
+        geometry.setIndex(indices);
+        geometry.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
+        geometry.setAttribute('uv', new THREE.Float32BufferAttribute(uvs, 2));
+        geometry.computeVertexNormals();
 
-        return texture;
+        return geometry;
     }
 
-    const bandSideTexture = makeBandTexture('  LARAVEL  ·  PHP  ·  MYSQL  ·  REST API  ·');
-    const bandTopTexture = makeBandTexture('  LIVEKIT  ·  WEBRTC  ·  TAILWINDCSS  ·  VITE  ·');
+    const ribbonMaterial = chromeMaterial({ side: THREE.DoubleSide });
+    const ribbon = new THREE.Group();
+    ribbon.add(new THREE.Mesh(buildMobiusGeometry(), ribbonMaterial));
+    ribbon.rotation.x = 0.42;
+    ribbon.visible = false;
+    spinner.add(ribbon);
 
-    // Sits clear of the sphere's own surface so it reads as wrapping around it
-    // rather than slicing through it.
-    const bandGeometry = new THREE.CylinderGeometry(1.4, 1.4, 0.36, 128, 1, true);
-    const bandMaterials = [];
+    // The packet systems below attach one per band; there is one band now.
+    const bands = [ribbon];
 
-    function makeBand(map) {
-        // Front faces carry the readable lettering. Back faces stay faint so the
-        // ring closes behind the sphere without showing the text mirrored.
-        const group = new THREE.Group();
-
-        [[THREE.BackSide, 0.2], [THREE.FrontSide, 1]].forEach(([side, scale]) => {
-            const bandMaterial = new THREE.MeshBasicMaterial({
-                map,
-                transparent: true,
-                opacity: 0,
-                side,
-                depthWrite: false,
-            });
-            bandMaterial.userData.scale = scale;
-            bandMaterials.push(bandMaterial);
-            group.add(new THREE.Mesh(bandGeometry, bandMaterial));
-        });
-
-        return group;
-    }
-
-    const bandSide = makeBand(bandSideTexture);
-    bandSide.rotation.x = 0.16;
-
-    const bandTop = makeBand(bandTopTexture);
-    bandTop.rotation.z = Math.PI / 2;
-    bandTop.rotation.x = 0.06;
-
-    const bands = [bandSide, bandTop];
-    bands.forEach((band) => {
-        band.visible = false;
-        spinner.add(band);
-    });
-
-    // Services: glowing data packets race around the two text bands, then
+    // Services: glowing data packets race along the ribbon's spine, then
     // spiral down into the orb. Each landing sends a small ripple across the
     // orb's surface (the same ripple system a click uses), so it visibly
     // takes the traffic in — a picture of the real-time work this section
@@ -940,7 +950,7 @@ function buildHeroSphere(THREE, canvas, RoomEnvironment) {
         packet.speed = (Math.random() < 0.5 ? -1 : 1) * (1.1 + Math.random() * 1.1);
         packet.ride = 1.4 + Math.random() * 2.8;
         packet.dive = 0.6;
-        packet.lane = (Math.random() * 2 - 1) * 0.11;
+        packet.lane = 0;
     }
 
     // Where a packet is, `age` seconds after launch: riding the band, then
@@ -1040,93 +1050,71 @@ function buildHeroSphere(THREE, canvas, RoomEnvironment) {
         });
     }
 
-    // Skills: gyroscope rings — several thin rings at different fixed tilts
-    // (not one shared axis), each independently precessing around its own
-    // local z, interlocking around a small glowing core. Third design for
-    // this section: the first was one solid faceted gem, the second was
-    // orbiting discrete shards — this one is deliberately a different
-    // *texture* again, wireframe-ish rotating bands rather than solid
-    // chunks, closer to an armillary sphere/gyroscope mechanism than an
-    // object made of parts. Lit by the real scene lights + environment map.
+    // Skills: a trefoil knot cut into one chrome segment per skill. A torus
+    // knot is a single closed loop, so the stack reads as one interlocked
+    // form rather than a list of parts — and hovering a skill lights up
+    // exactly the stretch of the knot that is that skill. Fourth design for
+    // this section (gem, orbiting shards, gyroscope rings, now this).
     const gemCluster = new THREE.Group();
     gemCluster.visible = false;
+    gemCluster.rotation.x = 0.5;
     spinner.add(gemCluster);
 
-    const gemCoreMaterial = new THREE.MeshStandardMaterial({
-        color: new THREE.Color('#f4f4f6'),
-        emissive: new THREE.Color('#ffffff'),
-        emissiveIntensity: 1.6,
-        transparent: true,
-        opacity: 0,
-        // Never writes depth: while it's fading, a half-visible core would
-        // otherwise hide the swarm particles passing behind it.
-        depthWrite: false,
-    });
-    const gemCoreMesh = new THREE.Mesh(new THREE.IcosahedronGeometry(0.2, 1), gemCoreMaterial);
+    // A small chrome bead in the knot's central void, pulsing on the breath.
+    const gemCoreMaterial = chromeMaterial();
+    const gemCoreMesh = new THREE.Mesh(new THREE.SphereGeometry(0.14, 24, 24), gemCoreMaterial);
     gemCluster.add(gemCoreMesh);
 
     const skillTags = Array.from(document.querySelectorAll('#skills [data-skill-index]'));
     const skillCount = skillTags.length;
 
-    // Similar-ish radius, each on a genuinely different axis combination —
-    // true gyroscope/gimbal rings read as interlocking because they share
-    // roughly one size and differ in orientation, not because they nest at
-    // increasing radii the way the old orbit shells did.
-    const GYRO_RING_COUNT = 4;
-    const GYRO_TILTS = [
-        { x: 0, y: 0 },
-        { x: Math.PI / 2, y: 0.15 },
-        { x: Math.PI / 4, y: Math.PI / 3 },
-        { x: -Math.PI / 3, y: Math.PI / 6 },
-    ];
+    class KnotCurve extends THREE.Curve {
+        constructor(p, q, major, minor) {
+            super();
+            Object.assign(this, { p, q, major, minor });
+        }
+
+        getPoint(t, target = new THREE.Vector3()) {
+            const phi = t * Math.PI * 2;
+            const r = this.major + this.minor * Math.cos(this.q * phi);
+
+            return target.set(r * Math.cos(this.p * phi), r * Math.sin(this.p * phi), this.minor * Math.sin(this.q * phi));
+        }
+    }
+
+    // A window onto another curve, so each segment can be tubed separately.
+    class CurveSpan extends THREE.Curve {
+        constructor(curve, from, to) {
+            super();
+            Object.assign(this, { curve, from, to });
+        }
+
+        getPoint(t, target) {
+            return this.curve.getPoint(this.from + (this.to - this.from) * t, target);
+        }
+    }
+
+    const knotCurve = new KnotCurve(2, 3, 0.52, 0.2);
+    const KNOT_SEGMENTS = Math.max(skillCount, 4);
+    const KNOT_TUBE = 0.062;
     const gemRings = [];
 
-    for (let i = 0; i < GYRO_RING_COUNT; i += 1) {
-        // Pearl with a thin-film (iridescent) coat, matching the orb's
-        // family — these were brand blue, which on the permanently blue
-        // canvas read as dark navy bands with almost no edge definition,
-        // the same visibility problem the orb itself had before its
-        // pearl-pink recolour. The cyan core and cyan hover glow stay as
-        // the accent.
-        const ringMaterial = new THREE.MeshPhysicalMaterial({
-            color: new THREE.Color('#e6e6ea'),
-            emissive: new THREE.Color('#ffffff'),
-            emissiveIntensity: 0,
-            metalness: 0.15,
-            roughness: 0.2,
-            clearcoat: 1,
-            clearcoatRoughness: 0.1,
-            iridescence: 0.28,
-            iridescenceIOR: 1.35,
-            iridescenceThicknessRange: [180, 420],
-            transparent: true,
-            opacity: 0,
-            side: THREE.DoubleSide,
-            depthWrite: false,
-        });
-        const ring = new THREE.Mesh(new THREE.TorusGeometry(0.66 + i * 0.03, 0.028, 12, 100), ringMaterial);
-        ring.rotation.x = GYRO_TILTS[i].x;
-        ring.rotation.y = GYRO_TILTS[i].y;
+    for (let i = 0; i < KNOT_SEGMENTS; i += 1) {
+        const ringMaterial = chromeMaterial();
+        // Overlapped a hair at each end so the segments butt invisibly.
+        const span = new CurveSpan(knotCurve, i / KNOT_SEGMENTS - 0.004, (i + 1) / KNOT_SEGMENTS + 0.004);
+        const ring = new THREE.Mesh(new THREE.TubeGeometry(span, 40, KNOT_TUBE, 12, false), ringMaterial);
         gemCluster.add(ring);
 
-        // Round-robin bucketing of skills across the (deliberately small,
-        // for an elegant gyroscope rather than a busy one) ring count —
-        // several skills can share a ring, same grouping idea the original
-        // single-gem version used across its facets.
+        // One skill per segment when the counts match; bucketed otherwise.
         const groupSkills = skillCount
-            ? skillTags.map((_, si) => si).filter((si) => Math.floor((si * GYRO_RING_COUNT) / skillCount) === i)
+            ? skillTags.map((_, si) => si).filter((si) => Math.floor((si * KNOT_SEGMENTS) / skillCount) === i)
             : [];
 
-        const spin = (0.3 + i * 0.12) * (i % 2 === 0 ? 1 : -1);
-
-        gemRings.push({
-            ring,
-            ringMaterial,
-            spin,
-            spinCurrent: spin,
-            glowCurrent: 0,
-            skillIndices: groupSkills,
-        });
+        // Kept in the same record shape the hover loop in tick() reads —
+        // `spin` is 0 because a knot segment has no axis of its own to
+        // precess about; the whole knot turns instead.
+        gemRings.push({ ring, ringMaterial, spin: 0, spinCurrent: 0, glowCurrent: 0, skillIndices: groupSkills });
     }
 
     let activeSkillIndex = -1;
@@ -1147,124 +1135,6 @@ function buildHeroSphere(THREE, canvas, RoomEnvironment) {
         el.addEventListener('blur', clearActive);
     });
 
-    // Work: a floating block grid — small cubes at the eight corners of a
-    // loose cube formation, each bobbing up and down at its own rhythm and
-    // slowly self-rotating. Third design for this section (stacked/twisted
-    // discs, then orbiting plates, now this): a literal "building blocks"
-    // reading, and a genuinely different texture from either previous
-    // version — independent bobbing rather than any kind of orbit, so
-    // neither this nor the Skills gyroscope rings risk echoing each other
-    // or the halo rings the way the last orbiting-plates version did.
-    // Cool pearl (a lilac-white, a step away from the Skills rings' pink so
-    // the two sections don't read as the same object) — was #168bff, which
-    // sank into the blue canvas as near-black silhouettes.
-    const discMaterial = new THREE.MeshPhysicalMaterial({
-        color: new THREE.Color('#ebebee'),
-        metalness: 0.12,
-        roughness: 0.18,
-        clearcoat: 1,
-        clearcoatRoughness: 0.08,
-        iridescence: 0.25,
-        iridescenceIOR: 1.3,
-        iridescenceThicknessRange: [220, 480],
-        transparent: true,
-        opacity: 0,
-        depthWrite: false,
-    });
-
-    const discGroup = new THREE.Group();
-    const blockGeometry = new THREE.BoxGeometry(0.24, 0.24, 0.24);
-    const discs = [];
-
-    [-1, 1].forEach((gx) => {
-        [-1, 1].forEach((gy) => {
-            [-1, 1].forEach((gz) => {
-                const block = new THREE.Mesh(blockGeometry, discMaterial);
-                const base = new THREE.Vector3(gx * 0.42, gy * 0.42, gz * 0.42);
-                block.position.copy(base);
-                discGroup.add(block);
-
-                discs.push({
-                    block,
-                    base,
-                    phase: Math.random() * Math.PI * 2,
-                    bobSpeed: 0.7 + Math.random() * 0.6,
-                    bobHeight: 0.07 + Math.random() * 0.04,
-                    spinX: (Math.random() - 0.5) * 0.5,
-                    spinY: (Math.random() - 0.5) * 0.5,
-                    // The idle self-rotation, kept separately so a block can
-                    // leave it to become a device tile and come back to it.
-                    free: new THREE.Euler(),
-                    // How quickly this block follows its target — staggered,
-                    // so the blocks arrive one after another, not in lockstep.
-                    rate: 3.4 + discs.length * 0.4,
-                });
-            });
-        });
-    });
-    discGroup.visible = false;
-    spinner.add(discGroup);
-
-    // Work: hover a project row and the eight blocks fly together into a
-    // device for that project — phone, laptop, monitor or tablet (each row's
-    // data-device in home.blade.php) — with its name lit up on the screen.
-    // Each block becomes one tile of the device. Layouts are in device space
-    // with the screen facing +z; DEVICE_TURN then angles the whole device
-    // toward the card on the left.
-    const TILE = 0.24;
-    const LAPTOP_TILT = -0.24;
-    const tile = (x, y, z, w, h, d, tilt = 0) => ({ p: [x, y, z], s: [w, h, d], tilt });
-
-    // A point on the laptop lid, given in the lid's own frame (`up` along
-    // the lid from its hinge, `out` off its face), leaned back about the
-    // hinge line at the base's rear edge.
-    const lid = (x, up, out) => [
-        x,
-        -0.32 + up * Math.cos(LAPTOP_TILT) - out * Math.sin(LAPTOP_TILT),
-        -0.19 + up * Math.sin(LAPTOP_TILT) + out * Math.cos(LAPTOP_TILT),
-    ];
-
-    // Each screen floats SCREEN_STANDOFF in front of its tiles' faces. Any
-    // closer and the tiles' steep side faces at the seams between them —
-    // whose depth multisampling can extrapolate up to half a pixel past
-    // their true edge — poked through the screen as thin lines. Still well
-    // under 2px of parallax at the angle the devices sit at.
-    const SCREEN_STANDOFF = 0.015;
-
-    const DEVICE_LAYOUTS = {
-        phone: {
-            tiles: [-0.45, -0.15, 0.15, 0.45].flatMap((y) => [-0.15, 0.15].map((x) => tile(x, y, 0, 0.3, 0.3, 0.07))),
-            screen: { p: [0, 0, 0.035 + SCREEN_STANDOFF], s: [0.52, 1.08], tilt: 0 },
-            canvas: [512, 1024],
-        },
-        laptop: {
-            tiles: [
-                ...[-0.05, 0.25].flatMap((z) => [-0.22, 0.22].map((x) => tile(x, -0.34, z, 0.44, 0.035, 0.3))),
-                ...[0.145, 0.435].flatMap((up) => [-0.22, 0.22].map((x) => tile(...lid(x, up, 0), 0.44, 0.29, 0.03, LAPTOP_TILT))),
-            ],
-            screen: { p: lid(0, 0.29, 0.015 + SCREEN_STANDOFF), s: [0.82, 0.52], tilt: LAPTOP_TILT },
-            canvas: [1024, 640],
-        },
-        monitor: {
-            tiles: [
-                ...[0.02, 0.36].flatMap((y) => [-0.38, 0, 0.38].map((x) => tile(x, y, 0, 0.38, 0.34, 0.05))),
-                tile(0, -0.27, -0.03, 0.08, 0.26, 0.05),
-                tile(0, -0.415, 0, 0.46, 0.03, 0.26),
-            ],
-            screen: { p: [0, 0.19, 0.025 + SCREEN_STANDOFF], s: [1.08, 0.62], tilt: 0 },
-            canvas: [1024, 600],
-        },
-        tablet: {
-            tiles: [-0.15, 0.15].flatMap((y) => [-0.435, -0.145, 0.145, 0.435].map((x) => tile(x, y, 0, 0.29, 0.3, 0.06))),
-            screen: { p: [0, 0, 0.03 + SCREEN_STANDOFF], s: [1.08, 0.52], tilt: 0 },
-            canvas: [1024, 512],
-        },
-    };
-    const DEVICE_TURN = new THREE.Quaternion().setFromEuler(new THREE.Euler(-0.04, -0.38, 0));
-    // Compensates for the group's own scale, which went from about 1 to 2.5
-    // when the shapes were sized to bleed off the viewport. Left at 1.3 the
-    // assembled phone stood several times taller than the screen.
-    const DEVICE_SCALE = 0.85;
     const AXIS_X = new THREE.Vector3(1, 0, 0);
     const AXIS_Y = new THREE.Vector3(0, 1, 0);
     const AXIS_Z = new THREE.Vector3(0, 0, 1);
@@ -1295,8 +1165,6 @@ function buildHeroSphere(THREE, canvas, RoomEnvironment) {
         row.addEventListener('focus', enter);
         row.addEventListener('blur', leave);
     });
-
-    const deviceFor = (index) => DEVICE_LAYOUTS[workRows[index]?.dataset.device] || DEVICE_LAYOUTS.laptop;
 
     function roundedRect(ctx, x, y, w, h, r) {
         ctx.beginPath();
@@ -1377,9 +1245,8 @@ function buildHeroSphere(THREE, canvas, RoomEnvironment) {
             // that arrives after the device has assembled would be ignored
             // until the next hover. Resetting the displayed project forces
             // it back through that path with the photo.
-            if (screenProject === index) {
-                screenProject = -1;
-                screenMaterial.opacity = 0;
+            if (slabs[index]) {
+                slabs[index].stale = true;
             }
         };
         image.onerror = () => console.warn('Project screenshot failed to load, using the drawn screen instead.');
@@ -1509,91 +1376,101 @@ function buildHeroSphere(THREE, canvas, RoomEnvironment) {
         return texture;
     }
 
-    // Drawn last (renderOrder) so the tiles behind it — which don't write
-    // depth while fading — can never paint over it. See SCREEN_STANDOFF for
-    // why it sits clear of the tile faces rather than flush on them.
-    const screenMaterial = new THREE.MeshBasicMaterial({ transparent: true, opacity: 0, depthWrite: false, toneMapped: false });
-    const deviceScreen = new THREE.Mesh(new THREE.PlaneGeometry(1, 1), screenMaterial);
-    deviceScreen.renderOrder = 5;
-    deviceScreen.visible = false;
-    discGroup.add(deviceScreen);
-    let screenProject = -1;
+    // Work: chrome monoliths — one tall mirrored slab per project, standing
+    // in a shallow arc. At rest they are pure reflection, a gallery of blank
+    // tablets; hover a project and its slab turns square to you and lights
+    // up with the real site. Replaces eight cubes that assembled into
+    // devices: a slab *is* the screen, so there is nothing left to build.
+    const SLAB_LAYOUT = { canvas: [512, 960] };
+    const SLAB_W = 0.5;
+    const SLAB_H = 0.92;
+    const SLAB_D = 0.045;
+    const SLAB_TILT = 0.26;
+    const slabGeometry = new THREE.BoxGeometry(SLAB_W, SLAB_H, SLAB_D);
+    const slabScreenGeometry = new THREE.PlaneGeometry(SLAB_W - 0.04, SLAB_H - 0.04);
 
-    const blockPosition = new THREE.Vector3();
-    const blockQuaternion = new THREE.Quaternion();
-    const blockScale = new THREE.Vector3();
-    const tiltQuaternion = new THREE.Quaternion();
-    // Work's waypoint rolls the whole assembly (data-sphere-rot) — invisible
-    // on a round orb or a loose cube cloud, but it tipped every device ~30°
-    // off upright. Each frame this cancels whatever roll the group carries.
-    const levelQuaternion = new THREE.Quaternion();
+    const slabGroup = new THREE.Group();
+    slabGroup.visible = false;
+    slabGroup.rotation.x = SLAB_TILT;
+    spinner.add(slabGroup);
 
-    function placeOnDevice(spec, bob, outPosition, outQuaternion) {
-        outPosition
-            .set(spec.p[0], spec.p[1] + bob, spec.p[2])
-            .multiplyScalar(DEVICE_SCALE)
-            .applyQuaternion(DEVICE_TURN)
-            .applyQuaternion(levelQuaternion);
-        outQuaternion.copy(levelQuaternion).multiply(DEVICE_TURN).multiply(tiltQuaternion.setFromAxisAngle(AXIS_X, spec.tilt));
+    const SLAB_COUNT = Math.max(workRows.length, 4);
+    const slabs = [];
+
+    for (let i = 0; i < SLAB_COUNT; i += 1) {
+        const angle = (i / (SLAB_COUNT - 1) - 0.5) * 1.6;
+        const rest = new THREE.Vector3(Math.sin(angle) * 1.25, 0, Math.cos(angle) * 1.25 - 0.7);
+        const slabMaterial = chromeMaterial();
+        const slab = new THREE.Mesh(slabGeometry, slabMaterial);
+        slab.position.copy(rest);
+        slab.rotation.y = angle;
+
+        // Drawn last so a slab behind it (not writing depth while fading)
+        // can never paint over it; stood a hair off the face so the box's
+        // own edge never z-fights it.
+        const screenMaterial = new THREE.MeshBasicMaterial({ transparent: true, opacity: 0, depthWrite: false, toneMapped: false });
+        const screen = new THREE.Mesh(slabScreenGeometry, screenMaterial);
+        screen.position.z = SLAB_D / 2 + 0.012;
+        screen.renderOrder = 5;
+        screen.visible = false;
+        slab.add(screen);
+        slabGroup.add(slab);
+
+        slabs.push({ slab, slabMaterial, screen, screenMaterial, rest, angle, phase: Math.random() * Math.PI * 2, stale: false, lit: 0 });
     }
 
-    // Per frame: every block eases toward either its idle grid pose or its
-    // tile on the active device; the screen swaps texture only while
-    // invisible and fades in once every tile has arrived.
-    function updateBlocks(deviceProject, raw, delta, time) {
-        const layout = deviceProject >= 0 ? deviceFor(deviceProject) : null;
-        const bob = Math.sin(time * 0.9) * 0.025;
-        levelQuaternion.setFromAxisAngle(AXIS_Z, -sphere.rotation.z);
+    const slabTarget = new THREE.Vector3();
+    const slabQuat = new THREE.Quaternion();
+    const slabEuler = new THREE.Euler();
 
-        // With a device up, ease the formation's slow drift back to a whole
-        // turn so the device faces where its layout says; otherwise drift.
-        if (layout) {
-            const front = Math.round(discGroup.rotation.y / (Math.PI * 2)) * Math.PI * 2;
-            discGroup.rotation.y += (front - discGroup.rotation.y) * (1 - Math.exp(-raw * 4));
-        } else {
-            discGroup.rotation.y += delta * 0.08;
-        }
+    function updateSlabs(litProject, shown, raw, delta, time) {
+        // A slow sway about the front rather than a continuous turn: a turn
+        // kept presenting the whole gallery edge-on at the moment you
+        // arrived. With something lit it settles square so that slab faces
+        // the camera.
+        const idleTurn = Math.sin(time * 0.22) * 0.32;
+        const targetTurn = litProject >= 0 ? 0 : idleTurn;
+        slabGroup.rotation.y += (targetTurn - slabGroup.rotation.y) * (1 - Math.exp(-raw * 3));
 
-        let gap = 0;
+        slabs.forEach((s, i) => {
+            const isLit = i === litProject;
+            s.lit += ((isLit ? 1 : 0) - s.lit) * (1 - Math.exp(-raw * 6));
 
-        discs.forEach((d, i) => {
-            if (layout) {
-                const spec = layout.tiles[i];
-                placeOnDevice(spec, bob, blockPosition, blockQuaternion);
-                blockScale.set(spec.s[0], spec.s[1], spec.s[2]).multiplyScalar(DEVICE_SCALE / TILE);
-            } else {
-                d.free.x += delta * d.spinX;
-                d.free.y += delta * d.spinY;
-                blockPosition.set(d.base.x, d.base.y + Math.sin(time * d.bobSpeed + d.phase) * d.bobHeight, d.base.z);
-                blockQuaternion.setFromEuler(d.free);
-                blockScale.set(1, 1, 1);
+            const bob = Math.sin(time * 0.8 + s.phase) * 0.03;
+            const sway = Math.sin(time * 0.45 + s.phase) * 0.12;
+
+            // Lit: forward to the centre line, square-on, a touch larger.
+            // The others step back and dim so the one you chose is the one
+            // you see.
+            slabTarget.copy(s.rest);
+            slabTarget.y += bob;
+            slabTarget.x *= 1 - s.lit * 0.6;
+            slabTarget.z += s.lit * 0.55 - (litProject >= 0 && !isLit ? 0.12 : 0);
+            s.slab.position.lerp(slabTarget, 1 - Math.exp(-raw * 5));
+
+            slabEuler.set(0, (s.angle + sway) * (1 - s.lit), 0);
+            slabQuat.setFromEuler(slabEuler);
+            s.slab.quaternion.slerp(slabQuat, 1 - Math.exp(-raw * 5));
+            s.slab.scale.setScalar(1 + s.lit * 0.14);
+
+            const dim = litProject >= 0 && !isLit ? 0.45 : 1;
+            s.slabMaterial.opacity = shown * dim;
+            s.slabMaterial.depthWrite = s.slabMaterial.opacity > 0.97;
+            s.slabMaterial.emissiveIntensity = 0.035 + s.lit * 0.06;
+
+            // The screen takes its texture (or a refreshed one, if the real
+            // photo arrived late) only while dark, then fades in once the
+            // slab has mostly turned.
+            if (isLit && (!s.screenMaterial.map || s.stale) && s.screenMaterial.opacity < 0.02) {
+                s.screenMaterial.map = screenTexture(i, SLAB_LAYOUT);
+                s.screenMaterial.needsUpdate = true;
+                s.stale = false;
             }
 
-            const follow = 1 - Math.exp(-raw * d.rate);
-            d.block.position.lerp(blockPosition, follow);
-            d.block.quaternion.slerp(blockQuaternion, follow);
-            d.block.scale.lerp(blockScale, follow);
-            gap = Math.max(gap, d.block.position.distanceTo(blockPosition));
+            const screenTarget = isLit && s.lit > 0.7 && !s.stale ? shown : 0;
+            s.screenMaterial.opacity += (screenTarget - s.screenMaterial.opacity) * (1 - Math.exp(-raw * (screenTarget ? 5 : 14)));
+            s.screen.visible = s.screenMaterial.opacity > 0.01;
         });
-
-        const assembled = layout !== null && gap < 0.03;
-
-        if (assembled && screenProject !== deviceProject && screenMaterial.opacity < 0.02) {
-            screenMaterial.map = screenTexture(deviceProject, layout);
-            screenMaterial.needsUpdate = true;
-            screenProject = deviceProject;
-        }
-
-        if (screenProject >= 0) {
-            const screen = deviceFor(screenProject).screen;
-            placeOnDevice(screen, bob, deviceScreen.position, deviceScreen.quaternion);
-            deviceScreen.scale.set(screen.s[0] * DEVICE_SCALE, screen.s[1] * DEVICE_SCALE, 1);
-        }
-
-        const screenTarget = assembled && screenProject === deviceProject ? discMaterial.opacity : 0;
-        const screenRate = screenTarget > screenMaterial.opacity ? 5 : 14;
-        screenMaterial.opacity += (screenTarget - screenMaterial.opacity) * (1 - Math.exp(-raw * screenRate));
-        deviceScreen.visible = screenMaterial.opacity > 0.01;
     }
 
     // Finale: the shaikh.labs mark in 3D — the same three polygons as
@@ -1643,117 +1520,79 @@ function buildHeroSphere(THREE, canvas, RoomEnvironment) {
     logoGroup.visible = false;
     spinner.add(logoGroup);
 
-    // Contact: the orb is revealed as a pearl. A scalloped oyster shell
-    // closes around it and opens as the section settles — the one object on
-    // the page that explains the orb rather than replacing it, which is why
-    // Contact keeps its orb (and its beacon pulse) instead of swapping to
-    // something else like Skills and Work do.
-    //
-    // Built here rather than from a model file: an oyster is a squashed
-    // dome with radial ridges, which is a dozen lines of parametric
-    // geometry and no download, no loader, no licence to track.
-    // Sized to frame a 0.95 orb, not to contain it: a first pass at 1.46 with
-    // deep bowls swallowed the pearl entirely and read as two white blobs.
-    // The shell wants to be a shallow setting the orb sits proud of.
-    const SHELL_RADIUS = 1.32;
-    const SHELL_RIDGES = 17;
+    // Contact: chrome droplets. Beads stream in out of the dark from every
+    // direction and merge into the orb, each one sending a ripple across
+    // its surface as it lands — things converging, which is what the
+    // section is asking for. Replaces the oyster shell. Driven on the CPU
+    // (a few dozen beads) so every landing's exact direction is known when
+    // it's time to ripple.
+    const DROPLET_COUNT = 34;
+    const dropletMaterial = chromeMaterial();
+    const dropletMesh = new THREE.InstancedMesh(new THREE.SphereGeometry(1, 14, 14), dropletMaterial, DROPLET_COUNT);
+    dropletMesh.visible = false;
+    dropletMesh.frustumCulled = false;
+    spinner.add(dropletMesh);
 
-    function buildShellGeometry(height, ridgeDepth) {
-        const rings = 26;
-        const radials = 132;
-        const positions = [];
-        const uvs = [];
-        const indices = [];
+    const droplets = Array.from({ length: DROPLET_COUNT }, () => {
+        // Biased toward the camera-facing hemisphere so the landings — the
+        // whole point — happen where they can be seen.
+        const dir = randomUnitVector();
+        dir.z = Math.abs(dir.z) * 0.6 + 0.25;
+        // Contact's orb rests on the left of the page with the copy on the
+        // right; a bead arriving from +x crosses the text to get here.
+        dir.x = -Math.abs(dir.x) * 0.9 + 0.12;
+        dir.normalize();
 
-        for (let i = 0; i <= rings; i += 1) {
-            // Biased toward the rim, where the scalloping needs the detail.
-            const t = Math.pow(i / rings, 0.85);
-            const theta = t * (Math.PI / 2);
+        return {
+            dir,
+            side: new THREE.Vector3().crossVectors(dir, AXIS_Y).normalize(),
+            start: 1.7 + Math.random() * 0.9,
+            speed: 0.11 + Math.random() * 0.1,
+            phase: Math.random(),
+            size: 0.035 + Math.random() * 0.04,
+            swing: (Math.random() - 0.5) * 0.9,
+            lastT: 0,
+        };
+    });
 
-            for (let j = 0; j <= radials; j += 1) {
-                const phi = (j / radials) * Math.PI * 2;
-                // Ridges fade out toward the centre of the shell, the way
-                // real growth ridges radiate from the hinge.
-                const ridge = 1 + Math.sin(phi * SHELL_RIDGES) * ridgeDepth * t;
-                const r = SHELL_RADIUS * Math.sin(theta) * ridge;
+    const dropletDummy = new THREE.Object3D();
+    const dropletLocal = new THREE.Vector3();
 
-                positions.push(r * Math.cos(phi), height * Math.cos(theta), r * Math.sin(phi));
-                uvs.push(j / radials, t);
+    function updateDroplets(shown, time) {
+        dropletMesh.visible = shown > 0.01;
+        dropletMaterial.opacity = shown;
 
-                if (i < rings && j < radials) {
-                    const a = i * (radials + 1) + j;
-                    const b = a + radials + 1;
-                    indices.push(a, b, a + 1, b, b + 1, a + 1);
-                }
-            }
+        if (!dropletMesh.visible) {
+            return;
         }
 
-        const geometry = new THREE.BufferGeometry();
-        geometry.setIndex(indices);
-        geometry.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
-        geometry.setAttribute('uv', new THREE.Float32BufferAttribute(uvs, 2));
-        geometry.computeVertexNormals();
+        droplets.forEach((d, i) => {
+            const t = (time * d.speed + d.phase) % 1;
 
-        return geometry;
+            // Wrapped: it just reached the surface. Ripple there, in the
+            // orb mesh's own frame (it spins independently of the group).
+            if (t < d.lastT && shown > 0.5) {
+                dropletLocal.copy(d.dir).multiplyScalar(0.95);
+                spinner.localToWorld(dropletLocal);
+                sphereMesh.worldToLocal(dropletLocal);
+                triggerRipple(dropletLocal.normalize(), 0.5);
+            }
+
+            d.lastT = t;
+
+            // Accelerates in on a swooping curve rather than a straight
+            // line, then shrinks into the surface as it merges.
+            const e = t * t;
+            const dist = d.start + (0.9 - d.start) * e;
+            dropletDummy.position.copy(d.dir).multiplyScalar(dist).addScaledVector(d.side, Math.sin(t * Math.PI) * d.swing);
+            const scale = d.size * Math.min(1, t * 6) * (1 - e * 0.55);
+            dropletDummy.scale.setScalar(Math.max(0.0001, scale));
+            dropletDummy.updateMatrix();
+            dropletMesh.setMatrixAt(i, dropletDummy.matrix);
+        });
+
+        dropletMesh.instanceMatrix.needsUpdate = true;
     }
-
-    // Outer face is chalky and matte, inner face is nacre — the same split a
-    // real shell has, and the reason the opening is worth watching. One
-    // geometry rendered twice (front faces outside, back faces inside) gets
-    // both without needing two meshes' worth of vertices or a custom shader.
-    const shellOuterMaterial = new THREE.MeshPhysicalMaterial({
-        color: new THREE.Color('#d6d6da'),
-        metalness: 0.05,
-        roughness: 0.66,
-        clearcoat: 0.3,
-        side: THREE.FrontSide,
-        transparent: true,
-        opacity: 0,
-        depthWrite: false,
-    });
-
-    const shellInnerMaterial = new THREE.MeshPhysicalMaterial({
-        color: new THREE.Color('#f3f3f5'),
-        metalness: 0.3,
-        roughness: 0.12,
-        clearcoat: 1,
-        clearcoatRoughness: 0.06,
-        iridescence: 0.3,
-        iridescenceIOR: 1.45,
-        iridescenceThicknessRange: [120, 560],
-        side: THREE.BackSide,
-        transparent: true,
-        opacity: 0,
-        depthWrite: false,
-    });
-
-    const shellMaterials = [shellOuterMaterial, shellInnerMaterial];
-
-    // The lower half is deeper (it cups the pearl), the lid shallower.
-    const shellBottomGeometry = buildShellGeometry(-0.42, 0.045);
-    const shellTopGeometry = buildShellGeometry(0.3, 0.04);
-
-    const shellGroup = new THREE.Group();
-    shellGroup.visible = false;
-    spinner.add(shellGroup);
-
-    shellMaterials.forEach((material) => {
-        shellGroup.add(new THREE.Mesh(shellBottomGeometry, material));
-    });
-
-    // Hinged at the back rim, not at the centre — rotating the lid about its
-    // own origin would make it pass straight through the lower shell.
-    const shellHinge = new THREE.Object3D();
-    shellHinge.position.z = -SHELL_RADIUS;
-    shellGroup.add(shellHinge);
-
-    const shellLid = new THREE.Group();
-    shellLid.position.z = SHELL_RADIUS;
-    shellHinge.add(shellLid);
-
-    shellMaterials.forEach((material) => {
-        shellLid.add(new THREE.Mesh(shellTopGeometry, material));
-    });
 
     // Fling burst: throw the orb (or whichever shape is showing) hard enough
     // and it shatters — a cloud of pearl shards bursts outward through depth
@@ -1884,41 +1723,37 @@ function buildHeroSphere(THREE, canvas, RoomEnvironment) {
         });
     }
 
-    // Points on the four tilted tori (same radii/tilts as gemRings — their
-    // per-frame precession spins each ring about its own axis, which maps
-    // the ring onto itself, so it can be ignored), plus a few on the core.
-    function sampleGyro(count) {
-        const tilt = new THREE.Euler();
-
+    // Points along the knot's tube (plus a few on the core bead), tilted the
+    // way the solid knot is so the swarm resolves exactly onto it.
+    function sampleKnot(count) {
         return Array.from({ length: count }, (_, i) => {
-            if (i % 16 === 0) {
-                return randomUnitVector().multiplyScalar(0.2);
+            if (i % 24 === 0) {
+                return randomUnitVector().multiplyScalar(0.14);
             }
 
-            const ring = Math.floor(Math.random() * GYRO_RING_COUNT);
-            const around = Math.random() * Math.PI * 2;
-            const tube = Math.random() * Math.PI * 2;
-            const radius = 0.66 + ring * 0.03 + 0.028 * Math.cos(tube);
-            tilt.set(GYRO_TILTS[ring].x, GYRO_TILTS[ring].y, 0);
-
-            return new THREE.Vector3(radius * Math.cos(around), radius * Math.sin(around), 0.028 * Math.sin(tube)).applyEuler(tilt);
+            return knotCurve
+                .getPoint(Math.random())
+                .add(randomUnitVector().multiplyScalar(KNOT_TUBE))
+                .applyAxisAngle(AXIS_X, 0.5);
         });
     }
 
-    // Points on the faces of the eight blocks at their grid positions.
-    function sampleBlocks(count) {
-        const half = TILE / 2;
+    // Points on the faces of the slabs at their resting poses in the arc.
+    function sampleSlabs(count) {
+        const half = new THREE.Vector3(SLAB_W / 2, SLAB_H / 2, SLAB_D / 2);
 
         return Array.from({ length: count }, (_, i) => {
+            const s = slabs[i % slabs.length];
             const face = Math.floor(Math.random() * 6);
+            const axis = face >> 1;
             const point = new THREE.Vector3(
-                (Math.random() * 2 - 1) * half,
-                (Math.random() * 2 - 1) * half,
-                (Math.random() * 2 - 1) * half
+                (Math.random() * 2 - 1) * half.x,
+                (Math.random() * 2 - 1) * half.y,
+                (Math.random() * 2 - 1) * half.z
             );
-            point.setComponent(face >> 1, face & 1 ? half : -half);
+            point.setComponent(axis, (face & 1 ? 1 : -1) * half.getComponent(axis));
 
-            return point.add(discs[i % discs.length].base);
+            return point.applyAxisAngle(AXIS_Y, s.angle).add(s.rest).applyAxisAngle(AXIS_X, SLAB_TILT);
         });
     }
 
@@ -2028,8 +1863,8 @@ function buildHeroSphere(THREE, canvas, RoomEnvironment) {
     const swarmGeometry = new THREE.BufferGeometry();
     // The orb doubles as `position` (three needs one to know the draw count).
     swarmGeometry.setAttribute('position', toAttribute(flowOrder(sampleOrb(SWARM_COUNT))));
-    swarmGeometry.setAttribute('aGyro', toAttribute(flowOrder(sampleGyro(SWARM_COUNT))));
-    swarmGeometry.setAttribute('aBlocks', toAttribute(flowOrder(sampleBlocks(SWARM_COUNT))));
+    swarmGeometry.setAttribute('aKnot', toAttribute(flowOrder(sampleKnot(SWARM_COUNT))));
+    swarmGeometry.setAttribute('aSlabs', toAttribute(flowOrder(sampleSlabs(SWARM_COUNT))));
     swarmGeometry.setAttribute('aLogo', toAttribute(flowOrder(sampleSurface(logoGeometries, SWARM_COUNT))));
 
     // The portrait starts as a copy of the orb and a flat brightness, so if
@@ -2166,8 +2001,8 @@ function buildHeroSphere(THREE, canvas, RoomEnvironment) {
         new THREE.ShaderMaterial({
             uniforms: swarmUniforms,
             vertexShader: `
-                attribute vec3 aGyro;
-                attribute vec3 aBlocks;
+                attribute vec3 aKnot;
+                attribute vec3 aSlabs;
                 attribute vec3 aLogo;
                 attribute vec3 aPortrait;
                 attribute float aPortraitLuma;
@@ -2188,8 +2023,8 @@ function buildHeroSphere(THREE, canvas, RoomEnvironment) {
 
                 vec3 shapePosition(float id) {
                     if (id < 0.5) return position;
-                    if (id < 1.5) return aGyro;
-                    if (id < 2.5) return aBlocks;
+                    if (id < 1.5) return aKnot;
+                    if (id < 2.5) return aSlabs;
                     if (id < 3.5) return aLogo;
                     return aPortrait;
                 }
@@ -2215,9 +2050,9 @@ function buildHeroSphere(THREE, canvas, RoomEnvironment) {
                     // into the mark.
                     if (uShapeB > 2.5 && uShapeA < 0.5) {
                         if (aSeed.w < 0.3) {
-                            from = aGyro * 0.9 + vec3(-3.6, 1.5, -1.8);
+                            from = aKnot * 0.9 + vec3(-3.6, 1.5, -1.8);
                         } else if (aSeed.w < 0.6) {
-                            from = aBlocks + vec3(3.6, -1.3, -1.8);
+                            from = aSlabs + vec3(3.6, -1.3, -1.8);
                         }
                     }
 
@@ -3208,7 +3043,7 @@ function buildHeroSphere(THREE, canvas, RoomEnvironment) {
         }
 
         if (shape === SHAPE.blocks) {
-            return discGroup.rotation.y;
+            return slabGroup.rotation.y;
         }
 
         return shape === SHAPE.logo ? logoGroup.rotation.y : 0;
@@ -3337,7 +3172,7 @@ function buildHeroSphere(THREE, canvas, RoomEnvironment) {
         // Double-time against the shared breath — a core beating twice per
         // breath reads as alive and still belongs to the same rhythm.
         const corePulse = 1.3 + Math.sin(time * BREATH_RATE * 2) * 0.5;
-        gemCoreMaterial.emissiveIntensity = corePulse;
+        gemCoreMaterial.emissiveIntensity = corePulse * 0.3;
         gemCoreMaterial.opacity = gemShown * 0.85;
 
         // Hovering a skill brightens and slows whichever ring that skill is
@@ -3353,6 +3188,8 @@ function buildHeroSphere(THREE, canvas, RoomEnvironment) {
             r.glowCurrent += (targetGlow - r.glowCurrent) * Math.min(1, delta * 6);
 
             r.ring.rotation.z += delta * r.spinCurrent;
+            // The hovered stretch of the knot swells a little as it lights.
+            r.ring.scale.setScalar(1 + r.glowCurrent * 0.12);
 
             r.ringMaterial.opacity = gemShown * 0.92;
             // Depth only once solid, so the interlocking rings occlude each
@@ -3361,15 +3198,14 @@ function buildHeroSphere(THREE, canvas, RoomEnvironment) {
             r.ringMaterial.emissiveIntensity = r.glowCurrent * 2;
         });
 
-        discMaterial.opacity = scrollCurrent.discs * solid;
-        discMaterial.depthWrite = discMaterial.opacity > 0.97;
-        discGroup.visible = discMaterial.opacity > 0.01;
-        discGroup.scale.setScalar(0.9 + scrollCurrent.discs * 0.1);
-        // A device only forms while Work is fully settled — never mid-morph
-        // or mid-burst, so the swarm always peels off the plain grid.
-        const deviceProject =
+        const slabsShown = scrollCurrent.discs * solid;
+        slabGroup.visible = slabsShown > 0.01;
+        slabGroup.scale.setScalar(0.9 + scrollCurrent.discs * 0.1);
+        // A slab lights only while Work is fully settled — never mid-morph
+        // or mid-burst, so the swarm always peels off the plain gallery.
+        const litProject =
             !compactView && hoveredProject >= 0 && scrollCurrent.discs > 0.92 && presence < 0.01 && burst < 0.01 ? hoveredProject : -1;
-        updateBlocks(deviceProject, raw, delta, time);
+        updateSlabs(litProject, slabsShown, raw, delta, time);
 
         logoMaterial.opacity = scrollCurrent.logo * solid;
         logoMaterial.depthWrite = logoMaterial.opacity > 0.97;
@@ -3377,42 +3213,26 @@ function buildHeroSphere(THREE, canvas, RoomEnvironment) {
         // A slow swing, so the extrusion and bevels read as 3D.
         logoGroup.rotation.y = Math.sin(time * 0.55) * 0.5;
 
-        // Contact's oyster. Opens as the section settles, and keeps breathing
-        // a few degrees once open so it never freezes into a prop. The lid
-        // leads the lower shell slightly — both halves moving identically
-        // reads mechanical, like a hinge rather than something alive.
-        const shellShown = scrollCurrent.beacon * solid;
-        shellGroup.visible = shellShown > 0.01;
-        shellOuterMaterial.opacity = shellShown;
-        shellInnerMaterial.opacity = shellShown;
-        shellOuterMaterial.depthWrite = shellShown > 0.97;
-        shellInnerMaterial.depthWrite = shellShown > 0.97;
-
-        const shellOpen = THREE.MathUtils.smoothstep(scrollCurrent.beacon, 0.15, 0.95);
-        // Opened far enough to show the nacre, not so far that the lid swings
-        // round into the frame and becomes the subject.
-        shellHinge.rotation.x = -shellOpen * (0.82 + breath * 0.05);
-        shellGroup.rotation.x = shellOpen * (0.3 + breath * 0.02);
-        // Settles down and back, so the pearl sits proud of the setting.
-        shellGroup.position.y = -0.36 * shellOpen;
-        shellGroup.position.z = -0.26 * shellOpen;
+        // Contact's droplets, converging on the orb.
+        updateDroplets(scrollCurrent.beacon * solid, time);
 
         const bandOpacity = scrollCurrent.bands * scrollCurrent.fade * 0.92 * solid;
-        bandMaterials.forEach((bandMaterial) => {
-            bandMaterial.opacity = bandOpacity * bandMaterial.userData.scale;
-        });
-        bands.forEach((band) => {
-            band.visible = bandOpacity > 0.01;
-        });
-
-        bandSide.rotation.y += delta * 0.12;
-        bandTop.rotation.y -= delta * 0.09;
-        bandSideTexture.offset.x -= delta * 0.055;
-        bandTopTexture.offset.x += delta * 0.045;
+        ribbonMaterial.opacity = bandOpacity;
+        ribbonMaterial.depthWrite = bandOpacity > 0.97;
+        ribbon.visible = bandOpacity > 0.01;
+        // One slow turn with a gentle nod, so the half-twist keeps catching
+        // new light instead of settling into one reflection.
+        ribbon.rotation.y += delta * 0.1;
+        ribbon.rotation.x = 0.42 + Math.sin(time * 0.3) * 0.08;
         updatePackets(bandOpacity, time);
 
         ringDots.forEach((pivot) => {
             pivot.rotation.z += delta * pivot.userData.spin;
+        });
+        ringTints.forEach((materials, i) => {
+            materials.forEach((material) => {
+                material.color.lerpColors(RING_PALETTE_PAPER[i], RING_PALETTE[i], uniforms.uBgBlue.value);
+            });
         });
         rings.forEach((ring) => {
             ring.rotation.z += delta * ring.userData.spin;

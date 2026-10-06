@@ -48,9 +48,45 @@ function initPageLoader() {
         return;
     }
 
+    const count = document.getElementById('page-loader-count');
+    const fill = document.getElementById('page-loader-fill');
+    let progress = 0;
+    let settled = false;
+
+    // The counter climbs on its own rather than tracking real bytes: actual
+    // load progress arrives in a few large lurches (the bundle, the fonts,
+    // three.js) and reads as broken. This eases toward 90 and waits there,
+    // then runs to 100 the moment everything is genuinely ready — so the
+    // number is honest about *finishing* even though its pace is designed.
+    const stepCounter = () => {
+        const target = settled ? 100 : 90;
+        progress += (target - progress) * (settled ? 0.25 : 0.045);
+
+        const shown = Math.min(100, Math.round(progress));
+
+        if (count) {
+            count.textContent = String(shown).padStart(2, '0');
+        }
+
+        if (fill) {
+            fill.style.transform = `scaleX(${(shown / 100).toFixed(3)})`;
+        }
+
+        if (!(settled && shown >= 100)) {
+            requestAnimationFrame(stepCounter);
+        }
+    };
+
+    requestAnimationFrame(stepCounter);
+
     const hide = () => {
-        loader.classList.add('is-hidden');
-        loader.addEventListener('transitionend', () => loader.remove(), { once: true });
+        settled = true;
+        // A beat at 100 before it lifts, so the count resolves visibly
+        // instead of the loader vanishing mid-climb.
+        window.setTimeout(() => {
+            loader.classList.add('is-hidden');
+            loader.addEventListener('transitionend', () => loader.remove(), { once: true });
+        }, 380);
     };
 
     const ready = Promise.all([
@@ -554,19 +590,19 @@ function buildHeroSphere(THREE, canvas, RoomEnvironment) {
         varying float vSpike;
 
         // The page's own background, rebuilt in shader space so the orb has
-        // something real to bend. Blue state mirrors the curtain's gradient
-        // exactly (#1557e8 -> #168bff at 60% -> #27c9f2); pale state
-        // approximates the hero's wash (near-white, cyan low-right).
+        // something real to bend. Ink state mirrors the curtain's gradient
+        // exactly (#16161a -> #0e0e11 at 60% -> #08080a); paper state
+        // approximates the hero's near-white wash.
         vec3 pageBackground(vec2 uv) {
             float d = distance(uv * vec2(uResolution.x / uResolution.y, 1.0),
                                uBgOrigin * vec2(uResolution.x / uResolution.y, 1.0));
 
-            vec3 blue = mix(vec3(0.082, 0.341, 0.910), vec3(0.086, 0.545, 1.0), smoothstep(0.0, 0.6, d));
-            blue = mix(blue, vec3(0.153, 0.788, 0.949), smoothstep(0.6, 1.1, d));
+            vec3 ink = mix(vec3(0.086, 0.086, 0.102), vec3(0.055, 0.055, 0.067), smoothstep(0.0, 0.6, d));
+            ink = mix(ink, vec3(0.031, 0.031, 0.039), smoothstep(0.6, 1.1, d));
 
-            vec3 pale = mix(vec3(0.97, 0.98, 1.0), vec3(0.72, 0.90, 0.99), smoothstep(0.35, 1.0, uv.x * 0.35 + (1.0 - uv.y) * 0.65));
+            vec3 paper = mix(vec3(0.965, 0.965, 0.969), vec3(0.902, 0.902, 0.914), smoothstep(0.35, 1.0, uv.x * 0.35 + (1.0 - uv.y) * 0.65));
 
-            return mix(pale, blue, uBgBlue);
+            return mix(paper, ink, uBgBlue);
         }
 
         void main() {
@@ -617,12 +653,11 @@ function buildHeroSphere(THREE, canvas, RoomEnvironment) {
             vec3 nacre = 0.5 + 0.5 * cos(6.28318 * (fresnel * 1.15 + n.y * 0.18 + vWave * 0.25 + vec3(0.0, 0.33, 0.67)));
             color = mix(color, color + nacre * 0.24, smoothstep(0.2, 0.95, fresnel) * 0.6);
 
-            // Cool bounce light from below-left: once the page is blue, the
-            // orb sits inside a blue world, and a rim that picks up a little
-            // of that colour is what makes it look lit by its surroundings
-            // instead of pasted on top of them.
+            // Bounce light from below-left. In a monochrome world there is
+            // no coloured surround to pick up, so this is a cool neutral
+            // that reads as sky-side fill rather than a tint.
             float bounce = pow(fresnel, 1.5) * clamp(dot(n, normalize(vec3(-0.55, -0.7, 0.35))), 0.0, 1.0);
-            color += vec3(0.32, 0.7, 1.0) * bounce * 0.38;
+            color += vec3(0.62, 0.66, 0.74) * bounce * 0.3;
 
             // This darkened the wave crests toward near-black (0.45x) to
             // read as "dark wet metal" against the old blue palette — fine
@@ -688,7 +723,7 @@ function buildHeroSphere(THREE, canvas, RoomEnvironment) {
             // its own fresnel sheen) so it reads as light coming from inside
             // the glass rather than another rim highlight.
             float pulse = sin(uTime * ${BREATH_RATE.toFixed(5)}) * 0.5 + 0.5;
-            color += vec3(1.0, 0.85, 0.92) * pulse * 0.4 * uBeacon * (1.0 - fresnel);
+            color += vec3(1.0, 0.93, 0.95) * pulse * 0.4 * uBeacon * (1.0 - fresnel);
 
             gl_FragColor = vec4(color, alpha * uGlobalAlpha);
         }
@@ -786,9 +821,9 @@ function buildHeroSphere(THREE, canvas, RoomEnvironment) {
         textCanvas.height = 200;
 
         const ctx = textCanvas.getContext('2d');
-        ctx.fillStyle = 'rgba(21, 87, 232, 0.72)';
+        ctx.fillStyle = 'rgba(246, 246, 247, 0.9)';
         ctx.fillRect(0, 0, textCanvas.width, textCanvas.height);
-        ctx.fillStyle = 'rgba(255, 255, 255, 0.96)';
+        ctx.fillStyle = 'rgba(10, 10, 12, 0.92)';
         ctx.font = '600 112px ui-monospace, Menlo, Consolas, monospace';
         ctx.textBaseline = 'middle';
 
@@ -890,7 +925,7 @@ function buildHeroSphere(THREE, canvas, RoomEnvironment) {
 
             void main() {
                 float core = smoothstep(0.5, 0.0, length(gl_PointCoord - 0.5));
-                vec3 color = mix(vec3(0.88, 0.99, 1.0), vec3(0.22, 0.78, 1.0), vTrail);
+                vec3 color = mix(vec3(1.0, 0.99, 0.97), vec3(0.62, 0.64, 0.70), vTrail);
                 gl_FragColor = vec4(color, core * core * vAlpha);
             }
         `,
@@ -1018,8 +1053,8 @@ function buildHeroSphere(THREE, canvas, RoomEnvironment) {
     spinner.add(gemCluster);
 
     const gemCoreMaterial = new THREE.MeshStandardMaterial({
-        color: new THREE.Color('#bfe9ff'),
-        emissive: new THREE.Color('#27c9f2'),
+        color: new THREE.Color('#f4f4f6'),
+        emissive: new THREE.Color('#ffffff'),
         emissiveIntensity: 1.6,
         transparent: true,
         opacity: 0,
@@ -1055,7 +1090,7 @@ function buildHeroSphere(THREE, canvas, RoomEnvironment) {
         // the accent.
         const ringMaterial = new THREE.MeshPhysicalMaterial({
             color: new THREE.Color('#f6d9e6'),
-            emissive: new THREE.Color('#27c9f2'),
+            emissive: new THREE.Color('#ffffff'),
             emissiveIntensity: 0,
             metalness: 0.15,
             roughness: 0.2,
@@ -1226,8 +1261,10 @@ function buildHeroSphere(THREE, canvas, RoomEnvironment) {
         },
     };
     const DEVICE_TURN = new THREE.Quaternion().setFromEuler(new THREE.Euler(-0.04, -0.38, 0));
-    // Devices read best a little larger than the block grid they come from.
-    const DEVICE_SCALE = 1.3;
+    // Compensates for the group's own scale, which went from about 1 to 2.5
+    // when the shapes were sized to bleed off the viewport. Left at 1.3 the
+    // assembled phone stood several times taller than the screen.
+    const DEVICE_SCALE = 0.55;
     const AXIS_X = new THREE.Vector3(1, 0, 0);
     const AXIS_Y = new THREE.Vector3(0, 1, 0);
     const AXIS_Z = new THREE.Vector3(0, 0, 1);
@@ -1387,14 +1424,14 @@ function buildHeroSphere(THREE, canvas, RoomEnvironment) {
             // so the device still says which project it is at a glance —
             // a bare screenshot at this size is unreadable.
             const scrim = ctx.createLinearGradient(0, height * 0.55, 0, height);
-            scrim.addColorStop(0, 'rgba(6, 20, 56, 0)');
-            scrim.addColorStop(1, 'rgba(6, 20, 56, 0.93)');
+            scrim.addColorStop(0, 'rgba(6, 6, 8, 0)');
+            scrim.addColorStop(1, 'rgba(6, 6, 8, 0.94)');
             ctx.fillStyle = scrim;
             ctx.fillRect(0, height * 0.55, width, height * 0.45);
 
             ctx.textBaseline = 'alphabetic';
             ctx.font = `500 ${Math.round(unit * 0.036)}px "JetBrains Mono", ui-monospace, monospace`;
-            ctx.fillStyle = 'rgba(159, 233, 255, 0.95)';
+            ctx.fillStyle = 'rgba(246, 246, 247, 0.72)';
             ctx.fillText(`CASE STUDY ${String(index + 1).padStart(2, '0')}`, pad, height - pad - unit * 0.17);
 
             ctx.font = `500 ${Math.round(unit * (portrait ? 0.085 : 0.07))}px "Playfair Display", Georgia, serif`;
@@ -1411,15 +1448,15 @@ function buildHeroSphere(THREE, canvas, RoomEnvironment) {
         }
 
         const base = ctx.createLinearGradient(0, 0, width * 0.7, height);
-        base.addColorStop(0, '#0a1a4a');
-        base.addColorStop(0.55, '#1043b8');
-        base.addColorStop(1, '#1f8fe6');
+        base.addColorStop(0, '#0b0b0e');
+        base.addColorStop(0.55, '#1d1e23');
+        base.addColorStop(1, '#34353c');
         ctx.fillStyle = base;
         ctx.fillRect(0, 0, width, height);
 
         const glow = ctx.createRadialGradient(width * 0.85, height * 0.1, 0, width * 0.85, height * 0.1, Math.max(width, height) * 0.7);
-        glow.addColorStop(0, 'rgba(39, 201, 242, 0.5)');
-        glow.addColorStop(1, 'rgba(39, 201, 242, 0)');
+        glow.addColorStop(0, 'rgba(246, 246, 247, 0.22)');
+        glow.addColorStop(1, 'rgba(246, 246, 247, 0)');
         ctx.fillStyle = glow;
         ctx.fillRect(0, 0, width, height);
 
@@ -1440,7 +1477,7 @@ function buildHeroSphere(THREE, canvas, RoomEnvironment) {
         const top = portrait ? height * 0.2 : height * 0.22;
         ctx.textBaseline = 'top';
         ctx.font = `500 ${Math.round(unit * 0.036)}px "JetBrains Mono", ui-monospace, monospace`;
-        ctx.fillStyle = 'rgba(159, 233, 255, 0.95)';
+        ctx.fillStyle = 'rgba(246, 246, 247, 0.72)';
         ctx.fillText(`CASE STUDY ${String(index + 1).padStart(2, '0')}`, pad, top);
 
         const titleSize = Math.round(unit * (portrait ? 0.11 : 0.09));
@@ -1459,7 +1496,7 @@ function buildHeroSphere(THREE, canvas, RoomEnvironment) {
         const cardHeight = unit * (portrait ? 0.32 : 0.2);
 
         for (let i = 0; i < cards; i += 1) {
-            ctx.fillStyle = i === 0 ? 'rgba(39, 201, 242, 0.28)' : 'rgba(255, 255, 255, 0.1)';
+            ctx.fillStyle = i === 0 ? 'rgba(246, 246, 247, 0.26)' : 'rgba(246, 246, 247, 0.08)';
             roundedRect(ctx, pad + i * (cardWidth + gap), height - pad - cardHeight, cardWidth, cardHeight, unit * 0.025);
             ctx.fill();
         }
@@ -2217,7 +2254,7 @@ function buildHeroSphere(THREE, canvas, RoomEnvironment) {
 
                 void main() {
                     float core = smoothstep(0.5, 0.0, length(gl_PointCoord - 0.5));
-                    vec3 tint = mix(vec3(1.0, 0.82, 0.91), vec3(0.62, 0.92, 1.0), vSpark);
+                    vec3 tint = mix(vec3(1.0, 0.95, 0.93), vec3(0.74, 0.78, 0.86), vSpark);
                     vec3 color = mix(tint, vec3(1.0), core * 0.55);
                     gl_FragColor = vec4(color, core * core * uAlpha * vLuma * mix(1.0, vTwinkle, vFlight));
                 }
@@ -2243,7 +2280,10 @@ function buildHeroSphere(THREE, canvas, RoomEnvironment) {
     // settles. That one cue is what stops the shapes reading as stickers
     // floating on a flat backdrop. A ring of light then pulses outward each
     // time the orb arrives somewhere, so landings land.
-    const FLOOR_Y = -1.5;
+    // Proportional to the shape rather than fixed: now that it is scaled to
+    // bleed off the viewport, a floor at a constant height would sit *inside*
+    // it. Measured in orb-radii, so the contact always reads the same.
+    const FLOOR_OFFSET = 1.45;
 
     const groundMaterial = new THREE.ShaderMaterial({
         uniforms: { uAlpha: { value: 0 }, uRing: { value: 0 } },
@@ -2266,7 +2306,7 @@ function buildHeroSphere(THREE, canvas, RoomEnvironment) {
                 // shadow, so this stays broad and very diffuse.
                 float core = pow(1.0 - clamp(d, 0.0, 1.0), 1.35);
                 float ring = smoothstep(0.1, 0.0, abs(d - uRing)) * (1.0 - uRing);
-                vec3 color = mix(vec3(0.03, 0.11, 0.3), vec3(0.55, 0.88, 1.0), ring);
+                vec3 color = mix(vec3(0.0, 0.0, 0.0), vec3(1.0, 1.0, 1.0), ring);
                 gl_FragColor = vec4(color, (core * uAlpha + ring * 0.42) * clamp(1.0 - d, 0.0, 1.0));
             }
         `,
@@ -2359,7 +2399,7 @@ function buildHeroSphere(THREE, canvas, RoomEnvironment) {
                 void main() {
                     float d = length(gl_PointCoord - 0.5);
                     float soft = smoothstep(0.5, 0.0, d);
-                    vec3 tint = mix(vec3(0.72, 0.87, 1.0), vec3(1.0, 0.86, 0.94), vDepth);
+                    vec3 tint = mix(vec3(0.70, 0.73, 0.80), vec3(1.0, 0.97, 0.95), vDepth);
                     float alpha = soft * soft * vTwinkle * (0.3 + vDepth * 0.55) * mix(1.0, 0.32, vBokeh);
                     gl_FragColor = vec4(tint, alpha * uAlpha);
                 }
@@ -2541,11 +2581,11 @@ function buildHeroSphere(THREE, canvas, RoomEnvironment) {
             // Lets the fixed UI chrome (chapter rail, caption, card edges)
             // switch to light-on-blue styling the moment the canvas turns
             // blue — slate-on-blue was close to invisible.
-            document.documentElement.classList.toggle('is-blue', growP >= 1);
+            document.documentElement.classList.toggle('is-dark', growP >= 1);
             wipeEl.style.zIndex = growP >= 1 ? '-1' : '50';
             wipeEl.style.clipPath = `circle(${(growP * 80).toFixed(2)}vmax at ${wipeOriginX} ${wipeOriginY})`;
             wipeEl.style.opacity = growP.toFixed(3);
-            wipeEl.style.background = `radial-gradient(circle at ${wipeOriginX} ${wipeOriginY}, #1557e8 0%, #168bff 60%, #27c9f2 100%)`;
+            wipeEl.style.background = `radial-gradient(circle at ${wipeOriginX} ${wipeOriginY}, #16161a 0%, #0e0e11 60%, #08080a 100%)`;
         };
 
         // GSAP fires onUpdate synchronously once at ScrollTrigger.create()
@@ -2880,7 +2920,11 @@ function buildHeroSphere(THREE, canvas, RoomEnvironment) {
         // above the card (the card gets matching top padding in app.css) at
         // close to full strength, which is also what makes it worth letting
         // touch visitors drag and tilt it.
-        const adapt = (pose) => (compact ? { ...pose, x: 0, y: pose.y + 1.5, scale: pose.scale * 0.72 } : pose);
+        // The desktop poses are now sized to be cropped by the viewport —
+        // the shape runs off the edges rather than sitting politely in one
+        // half. A phone has nowhere near that room, so compact view scales
+        // it right back down and lifts it above the copy.
+        const adapt = (pose) => (compact ? { ...pose, x: 0, y: pose.y + 1.5, scale: pose.scale * 0.32 } : pose);
 
         compactView = compact;
 
@@ -2895,7 +2939,10 @@ function buildHeroSphere(THREE, canvas, RoomEnvironment) {
                 // the hero's own eyebrow line word for word.
                 caption: 'Scroll to explore',
                 shape: SHAPE.orb,
-                pose: adapt({ x: 1.62, y: 0, scale: 1, rotZ: 0, spike: 0, bands: 0, fade: 1, gem: 0, discs: 0, beacon: 0, logo: 0, morph: 0, ...moodKeysFromHex(hero.dataset.sphereMood) }),
+                // Scaled to be cropped by the viewport like every other
+                // waypoint — the shape is a field running off the edge of
+                // the page, not an object sitting beside the copy.
+                pose: adapt({ x: 2.3, y: 0, scale: 2.2, rotZ: 0, spike: 0, bands: 0, fade: 1, gem: 0, discs: 0, beacon: 0, logo: 0, morph: 0, ...moodKeysFromHex(hero.dataset.sphereMood) }),
             });
         }
 
@@ -3461,10 +3508,14 @@ function buildHeroSphere(THREE, canvas, RoomEnvironment) {
         // is the whole cue — a shadow that merely followed the orb around at
         // a fixed size would read as a decal stuck beneath it.
         const lift = THREE.MathUtils.clamp(arcLift / 0.45, 0, 1);
-        const groundWidth = (3.1 + lift * 1.5) * sphere.scale.x;
+        const groundWidth = (2.6 + lift * 1.2) * sphere.scale.x;
 
-        groundMesh.position.set(sphere.position.x, FLOOR_Y, sphere.position.z - 0.25);
-        groundMesh.scale.set(groundWidth, groundWidth * 0.34, 1);
+        groundMesh.position.set(
+            sphere.position.x,
+            sphere.position.y - FLOOR_OFFSET * sphere.scale.x,
+            sphere.position.z - 0.25
+        );
+        groundMesh.scale.set(groundWidth, groundWidth * 0.3, 1);
 
         // Fires once each time the orb finishes arriving somewhere.
         if (landingRing < 1) {
@@ -3863,6 +3914,36 @@ function initNav() {
             }
         });
     });
+}
+
+// The chrome recedes while you read. The references this was pushed toward
+// show a logo and one word; everything else earns its place only when it is
+// wanted. So the chapter rail, the caption and the motion toggle fade back
+// once scrolling stops, and return the instant you move again or point at
+// them. Nothing is removed from the page or the accessibility tree — it is
+// opacity only, and anything focused by keyboard brings its own chrome back.
+function initChromeFade() {
+    if (prefersReducedMotion) {
+        return;
+    }
+
+    const root = document.documentElement;
+    let idleTimer = 0;
+
+    const wake = () => {
+        root.classList.remove('chrome-dim');
+        window.clearTimeout(idleTimer);
+        idleTimer = window.setTimeout(() => root.classList.add('chrome-dim'), 1800);
+    };
+
+    ['scroll', 'pointermove', 'pointerdown', 'keydown'].forEach((type) => {
+        window.addEventListener(type, wake, { passive: true });
+    });
+
+    // A keyboard user tabbing into hidden chrome must see it.
+    document.addEventListener('focusin', wake);
+
+    wake();
 }
 
 // Nothing about the orb says you can touch it, so most visitors never
@@ -4502,23 +4583,6 @@ function initBackToTop() {
     });
 }
 
-// Glass cards catch a soft light that follows the cursor across them (the
-// gradient itself lives in .stage-card's background in app.css — this only
-// feeds it the pointer position).
-function initCardSpotlight() {
-    if (window.matchMedia('(pointer: coarse)').matches) {
-        return;
-    }
-
-    document.querySelectorAll('.stage-card').forEach((card) => {
-        card.addEventListener('pointermove', (event) => {
-            const rect = card.getBoundingClientRect();
-            card.style.setProperty('--spot-x', `${event.clientX - rect.left}px`);
-            card.style.setProperty('--spot-y', `${event.clientY - rect.top}px`);
-        });
-    });
-}
-
 // Opening/closing an accordion item changes the page height below it, which
 // every ScrollTrigger start/end further down the page was measured against —
 // re-measure once the height transition has finished.
@@ -4552,12 +4616,12 @@ document.addEventListener('DOMContentLoaded', () => {
     initProcessTimeline();
     initLocalTime();
     initBackToTop();
-    initCardSpotlight();
     initAccordions();
     initTextMelt();
     initOrbHint();
     initKeyboardNav();
     initRailScrub();
+    initChromeFade();
 
     requestAnimationFrame(() => ScrollTrigger.refresh());
 

@@ -71,7 +71,7 @@
          removed for good after it's seen or acted on (initOrbHint). --}}
     <p class="orb-hint" id="orb-hint" aria-hidden="true"></p>
 
-    <x-section bleed id="top" data-sphere-hero data-sphere-mood="#1557e8" class="relative min-h-[88vh] sm:min-h-[92vh]">
+    <x-section bleed id="top" data-sphere-hero data-sphere-mood="#8a8c94" class="relative min-h-[88vh] sm:min-h-[92vh]">
         <div class="relative z-10 flex min-h-[88vh] items-center px-6 py-24 sm:min-h-[92vh] sm:px-8 lg:px-16">
             <div data-hero-content class="w-full max-w-2xl text-center lg:text-left">
                 <p data-animate class="font-mono text-sm font-medium uppercase tracking-widest text-slate-500">A journey of clean, purposeful code</p>
@@ -111,19 +111,19 @@
         id="about"
         class="stage-section"
         data-caption="The developer"
-        data-sphere-x="-1.62"
+        data-sphere-x="-2.55"
         data-sphere-y="0.2"
-        data-sphere-scale="0.95"
+        data-sphere-scale="2.4"
         data-sphere-rot="0.35"
         data-sphere-spike="1"
         data-sphere-bands="0"
-        data-sphere-mood="#2b3bd6"
+        data-sphere-mood="#7e8088"
     >
         <span class="section-numeral" aria-hidden="true">01</span>
 
         <div data-animate class="stage-card" data-side="right">
-            <p class="font-mono text-xs uppercase tracking-[0.14em] text-brand-600">01 &mdash; The developer</p>
-            <h2 data-scramble data-melt class="mt-3 font-serif text-5xl font-medium leading-[1.05] text-slate-900 sm:text-6xl">Hi, I'm Shaikh Shoeb Akhtar</h2>
+            <p class="section-eyebrow">01 &mdash; The developer</p>
+            <h2 data-scramble data-melt class="section-title mt-4">Hi, I'm Shaikh Shoeb Akhtar</h2>
             <p class="mt-5 text-slate-600">
                 A full-stack developer specializing in responsive, scalable applications for startups and businesses &mdash; from real-time infrastructure and API architecture to the pixel-level details of the interface.
                 I work directly with clients to turn ideas into production-ready products.
@@ -142,23 +142,21 @@
         id="services"
         class="stage-section"
         data-caption="What I offer"
-        data-sphere-x="1.62"
+        data-sphere-x="2.55"
         data-sphere-y="-0.15"
-        data-sphere-scale="1.05"
+        data-sphere-scale="2.5"
         data-sphere-rot="-0.4"
         data-sphere-spike="0"
         data-sphere-bands="1"
-        data-sphere-mood="#1b9fe8"
+        data-sphere-mood="#93959b"
     >
         <span class="section-numeral" aria-hidden="true">02</span>
 
-        {{-- The one section with no card: the accordion sits straight on the
-             blue, which breaks the card-on-alternating-sides rhythm that
-             every other section shares. Reverts to a normal card under
-             reduced motion, where there is no blue to sit on (app.css). --}}
-        <div data-animate class="stage-card stage-card--bare">
-            <p class="font-mono text-xs uppercase tracking-[0.14em]">02 &mdash; What I offer</p>
-            <h2 data-scramble data-melt class="mt-3 font-serif text-6xl font-medium leading-[0.95] sm:text-7xl xl:text-8xl">Services</h2>
+        {{-- Nothing is boxed in a panel any more, so this section is no
+             longer the exception it once was — it just runs wider. --}}
+        <div data-animate class="stage-card stage-card--wide">
+            <p class="section-eyebrow">02 &mdash; What I offer</p>
+            <h2 data-scramble data-melt class="section-title mt-4">Services</h2>
 
             {{-- An exclusive accordion (shared `name`: opening one closes the
                  others) built on native <details>, so it's keyboard- and
@@ -192,22 +190,22 @@
         id="skills"
         class="stage-section"
         data-caption="Tools &amp; stack"
-        data-sphere-x="-1.58"
+        data-sphere-x="-2.5"
         data-sphere-y="0.25"
-        data-sphere-scale="0.92"
+        data-sphere-scale="2.45"
         data-sphere-rot="0.5"
         data-sphere-spike="0"
         data-sphere-bands="0"
         data-sphere-gem="1"
-        data-sphere-mood="#0d2fa8"
+        data-sphere-mood="#6e707a"
     >
         <span class="section-numeral" aria-hidden="true">03</span>
 
         {{-- Two columns rather than one, so the stack reads as a list beside
              its explanation instead of another single-column card. --}}
         <div data-animate class="stage-card stage-card--split" data-side="right">
-            <p class="font-mono text-xs uppercase tracking-[0.14em] text-brand-600">03 &mdash; Core skills</p>
-            <h2 data-scramble data-melt class="mt-3 font-serif text-4xl font-medium text-slate-900 sm:text-5xl">Tools I build with</h2>
+            <p class="section-eyebrow">03 &mdash; Core skills</p>
+            <h2 data-scramble data-melt class="section-title mt-4">Tools I build with</h2>
 
             <div class="stage-card__columns">
                 <ul class="flex flex-wrap content-start gap-2" data-stagger>
@@ -231,20 +229,20 @@
         id="work"
         class="stage-section"
         data-caption="Selected work"
-        data-sphere-x="1.6"
+        data-sphere-x="2.5"
         data-sphere-y="-0.2"
-        data-sphere-scale="1.02"
+        data-sphere-scale="2.5"
         data-sphere-rot="-0.5"
         data-sphere-spike="0"
         data-sphere-bands="0"
         data-sphere-discs="1"
-        data-sphere-mood="#07bdb4"
+        data-sphere-mood="#9a9c9f"
     >
         <span class="section-numeral" aria-hidden="true">04</span>
 
         <div data-animate class="stage-card">
-            <p class="font-mono text-xs uppercase tracking-[0.14em] text-brand-600">04 &mdash; Selected work</p>
-            <h2 data-scramble data-melt class="mt-3 font-serif text-5xl font-medium leading-[1.02] text-slate-900 sm:text-6xl">The digital experiences</h2>
+            <p class="section-eyebrow">04 &mdash; Selected work</p>
+            <h2 data-scramble data-melt class="section-title mt-4">The digital experiences</h2>
 
             @if ($projects->isEmpty())
                 <p class="mt-6 text-slate-500">Case studies are coming soon.</p>
@@ -286,20 +284,20 @@
         id="start"
         class="stage-section"
         data-caption="Let's build"
-        data-sphere-x="-1.55"
+        data-sphere-x="-2.45"
         data-sphere-y="0.1"
-        data-sphere-scale="0.98"
+        data-sphere-scale="2.45"
         data-sphere-rot="0.3"
         data-sphere-spike="0"
         data-sphere-bands="0"
         data-sphere-beacon="1"
-        data-sphere-mood="#5aa9ff"
+        data-sphere-mood="#aeb0b6"
     >
         <span class="section-numeral" aria-hidden="true">05</span>
 
         <div data-animate class="stage-card" data-side="right">
-            <p class="font-mono text-xs uppercase tracking-[0.14em] text-brand-600">05 &mdash; Let's build</p>
-            <h2 data-scramble data-melt class="mt-3 font-serif text-4xl font-medium text-slate-900 sm:text-5xl">Have a project in mind?</h2>
+            <p class="section-eyebrow">05 &mdash; Let's build</p>
+            <h2 data-scramble data-melt class="section-title mt-4">Have a project in mind?</h2>
             <p class="mt-5 text-slate-600">
                 Tell me what you're building and I'll come back with next steps &mdash; usually within a day.
             </p>
@@ -340,12 +338,12 @@
         data-caption="Thanks for scrolling"
         data-sphere-x="0"
         data-sphere-y="0.12"
-        data-sphere-scale="1.1"
+        data-sphere-scale="2.2"
         data-sphere-rot="0"
         data-sphere-spike="0"
         data-sphere-bands="0"
         data-sphere-logo="1"
-        data-sphere-mood="#1557e8"
+        data-sphere-mood="#8a8c94"
     >
         <p data-animate class="finale__colophon">shaikh.labs &mdash; designed &amp; built from scratch with Laravel, GSAP &amp; Three.js</p>
     </x-section>

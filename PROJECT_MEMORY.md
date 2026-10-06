@@ -4,6 +4,14 @@ Read this before touching `resources/js/app.js` or `resources/views/home.blade.p
 
 **Update this file after every change that affects the hero sphere, homepage structure, or brand system** — not every tiny CSS tweak, but anything a future session would otherwise have to re-discover by reading a diff or asking the user again. Keep the changelog append-only (newest entry on top), and keep the "Current state" section in sync with reality, not with what was *intended* — if something was tried and reverted, say so and say why, don't just delete the trace.
 
+## Design direction (read first)
+
+The site is **monochrome**: paper (`--paper` #f6f6f7) for the homepage hero, ink (`--ink-900` #08080a) for everything after it and for every other page. The pearl orb is the only warm thing on the site and reads as the light source. The **logo keeps its blue gradient** — one spot of colour in an otherwise neutral site is a signature; colour everywhere was decoration. The `--color-brand-*` ramp still exists but now holds **greys**, which is what turns every pill, toggle, rule, focus ring and marker monochrome from one place.
+
+**There are no cards.** Content sits directly on the page under a single hairline rule. Section headings run to ~9rem against 11px labels; that ratio is the whole editorial effect. The 3D is scaled (2.2–2.5) to be **cropped by the viewport** rather than sitting beside the copy, so the text column is deliberately narrow (32rem). Chrome recedes while you read.
+
+This replaced a saturated-blue world of translucent glass cards, 36–48px headings and a politely-boxed orb, after the user pointed at cyphercapital.com and edolus.com. The lesson from both: they feel expensive because of what they *removed*. Do not reintroduce panels, tints or mid-sized type without a reason.
+
 ## Stack
 
 - Laravel 13 + Tailwind CSS v4 + Vite, local dev via XAMPP/MySQL (`DB_DATABASE=corefolio`)
@@ -53,7 +61,10 @@ The sphere's per-section target (position, scale, rotation, spike, bands, fade, 
 - Motion-pause button stops the *ambient* animation (idle breathing, orbit spin) but scroll-driven response keeps working — intentional, not a bug.
 - **Load choreography**: `initPageLoader()` sets a module-level `pageReady` promise (resolves when the loader starts fading, capped at 3s to match the CSS auto-hide). The hero copy (`[data-sphere-hero] [data-animate]`) starts hidden and rises in a stagger on it; the orb's `intro` tween waits on it too.
 - **Scroll choreography** (`initScrollReveal()`): homepage `.stage-card`s enter from the side they sit on (`x ±90`, `rotationY ±9`, `expo.out`; plain rise below 1024px), then their children stagger in — `[data-stagger]` containers stagger per child. `[data-hero-content]` drifts up/dims (scrubbed) as you leave the hero.
-- **`is-blue` class on `<html>`**: toggled by the curtain (`growP >= 1`). CSS uses it to flip the chapter rail, caption and card borders to light-on-blue.
+- **`is-dark` class on `<html>`** (renamed from `is-blue`): toggled by the curtain on the homepage (`growP >= 1`), and set **server-side in the layout on every non-home route** — the hero is the one light moment on the site, so the other pages start in the dark world already. Everything dark-world keys off it.
+  **Surfaces carrying their own white fill must be inverted explicitly** — the blanket `is-dark .text-slate-900 → paper` rule otherwise leaves white type on a white card. Caught on the Work index (`.project-card`) and the contact form (inputs, validation states); both have explicit overrides now. Check this on any new white-backed component.
+- **Receding chrome** (`initChromeFade()`): adds `chrome-dim` to `<html>` 1.8s after scrolling stops, fading the chapter rail, caption, motion toggle and the rail's nav icons. Opacity only — nothing leaves the accessibility tree, and `focusin`/hover bring it straight back.
+- **Loader is an entry ritual**: a counter eases to 90, holds, then runs to 100 once the page is genuinely ready, over a filling hairline. The *pace* is designed (real load progress arrives in a few large lurches and reads as broken); the *finish* is honest. Still capped at 3s by the CSS auto-hide — a portfolio visitor wants the work, not a patience test.
 - **Chapter rail** has a progress hairline (`.chapter-rail__track::after`, `scaleY(var(--scroll-progress))`) and a bead beside the current chapter. The bottom caption doubles as the **scroll cue** in the hero (`.is-cue`, hero waypoint caption is "Scroll to explore").
 - **Light-dust field** (`dust`, `THREE.Points`, 720 desktop / 260 compact): all motion in the vertex shader (scroll parallax by depth, idle drift, pointer offset); `uAlpha = dustPresence` = the curtain's `reappearP`, so it only exists on the blue canvas.
 - **Orb hover**: per-frame ray-vs-bounding-sphere test (cached `canvasRect`, desktop only, only while `uGlobalAlpha > 0.6`) → `orbHover` adds distortion + spin; toggles `#cursor-ring.is-orb`.
@@ -98,6 +109,16 @@ The ambient background (`.stage-wash`, `.stage-ambient`, `.stage-blob` ×2, `.st
 Cross-document **view transitions** are on (`@view-transition { navigation: auto; }` in `app.css`) — a plain cross-fade between any two pages on the site, no JS. No-ops silently in browsers that don't support it yet (Safari, older Firefox); nothing to maintain there.
 
 ## Changelog
+
+**2026-10-06 — Monochrome: palette, no cards, display type, full-bleed 3D, receding chrome** — User pointed at cyphercapital.com and edolus.com and asked for "more dramatic, beyond professional". I captured both at several scroll depths rather than guessing: Cypher is pure white with *no panels at all*, ~100px black headings against 13px grey body, hairline rules, and one chrome ribbon bleeding off every edge; Edolus is pure black, huge thin caps, a 24-second branded preloader. The diagnosis that mattered: **both feel expensive because of what they removed.** Our site already had more 3D than either; what it lacked was restraint and scale. See the new "Design direction" section at the top.
+Done: monochrome palette (paper hero → ink everywhere else, pearl orb as the only warm thing, logo keeps its blue); **cards deleted** in favour of content on a hairline; headings to ~9rem with 11px mono labels; the 3D scaled 2.2–2.5 so the viewport **crops** it; chrome that recedes while reading; a loader counter; corner ticks on the primary actions. The whole 3D scene was re-tinted — curtain, refraction background, text bands (now a bright white ribbon with ink lettering), packets, gem core, device screens, swarm, dust and ground shadow.
+Things that needed catching:
+- **White-filled surfaces went invisible.** The blanket text rules turned project-card titles and every contact-form input white on white. Both now have explicit dark-world overrides; this is the standing hazard of the `is-dark` approach and is flagged in Current state.
+- **`DEVICE_SCALE` had to drop 1.3 → 0.55.** The hover-assembled devices inherit the group's scale, which had just gone from ~1 to ~2.5, so the phone stood several times taller than the screen.
+- **The ground shadow needed to become proportional** (`FLOOR_OFFSET` in orb-radii) — a fixed floor at -1.5 now sits *inside* a shape of radius ~2.4.
+- **Compact scale went to ×0.32** (from ×0.72): the desktop poses are sized to be cropped, which a phone has nowhere near the room for.
+- `bg-[--paper]` on `<body>` silently did nothing — Tailwind v4 changed that arbitrary-value syntax. Moved to a plain CSS rule.
+Verified: desktop + mobile at every section, all four secondary pages, reduced motion (paper with dark text, no cards), the device assembly at the new scale, full interaction suites, adaptive quality under 1× and 20× throttling, and all three browser engines. Zero console errors throughout; no mobile overflow.
 
 **2026-10-06 — Per-transition flight paths; film grain removed** — User asked for the section-to-section motion to be more than "just left-right", and for the grain to go.
 - **Flight paths.** The shapes always varied but the *path* never did: slide across, dip, arrive, six times — which stops reading as motion and starts reading as a mechanism. Each handoff now has its own route (`FLIGHT_PATHS`, see Current state), and the transition's intensity answers to scroll velocity. Verified by screenshotting every transition at its midpoint: About→Services vaults up and over, Services→Skills swings low and large past the camera, Skills→Work falls far back to a small distant cloud, Work→Contact spirals out close and wide. Genuinely different journeys, not one journey mirrored.

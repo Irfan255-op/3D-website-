@@ -3,14 +3,29 @@
 @source '../../vendor/laravel/framework/src/Illuminate/Pagination/resources/views/*.blade.php';
 @source '../../storage/framework/views/*.php';
 
+/* --- Palette ---------------------------------------------------------
+   Monochrome. The page is paper at the top and ink from About onward, and
+   the pearl orb is the only warm thing in it — which is what makes it read
+   as a light source rather than an object sitting on a colour. The brand
+   mark keeps its blue gradient: one spot of colour in an otherwise neutral
+   site reads as deliberate, where colour everywhere reads as decoration.
+   Replaces a saturated blue world; the `--color-brand-*` tokens below are
+   kept because the logo and a few focus states still use them. */
 :root {
-    /* Default = brand-600 (#1557e8) as RGB components. app.js overwrites
-       these every frame on the homepage, interpolated per the active
-       section's data-sphere-mood; everywhere else they just sit at this
-       default, which matches the original always-brand-blue ambient glow. */
-    --mood-r: 21;
-    --mood-g: 87;
-    --mood-b: 232;
+    --ink-900: #08080a;
+    --ink-800: #0e0e11;
+    --ink-700: #16161a;
+    --ink-600: #202026;
+    --paper: #f6f6f7;
+    --paper-dim: #ebebed;
+
+    /* Default = a neutral grey. app.js overwrites these every frame on the
+       homepage, interpolated per the active section's data-sphere-mood.
+       In a monochrome palette these carry *temperature* rather than hue —
+       each section leans a few degrees warmer or cooler than neutral. */
+    --mood-r: 120;
+    --mood-g: 122;
+    --mood-b: 130;
 
     /* The page's shared breath. app.js writes --breath (0..1) every frame
        from the same sine the orb swells on, so anything using it is in
@@ -21,6 +36,183 @@
        --breath-duration mirrors BREATH_SECONDS in app.js — keep in sync. */
     --breath: 0.5;
     --breath-duration: 3.6s;
+}
+
+/* Paper, as the base. Set here rather than as a utility class on <body>
+   so it reads from the same token as everything else. */
+body {
+    background: var(--paper);
+}
+
+/* The dark world. Applied by the curtain on the homepage once it settles,
+   and server-side on every other page — so the hero's paper is the one
+   light moment on the whole site and everything after it is ink. */
+html.is-dark,
+html.is-dark body {
+    background: var(--ink-900);
+    color: var(--paper);
+}
+
+html.is-dark .text-slate-900,
+html.is-dark .text-slate-700 {
+    color: var(--paper);
+}
+
+html.is-dark .text-slate-600,
+html.is-dark .text-slate-500 {
+    color: rgb(246 246 247 / 0.62);
+}
+
+html.is-dark .text-slate-400,
+html.is-dark .text-slate-300 {
+    color: rgb(246 246 247 / 0.4);
+}
+
+/* Brand-tinted eyebrows and links go neutral; the logo keeps its colour. */
+html.is-dark .text-brand-600,
+html.is-dark .text-brand-500 {
+    color: rgb(246 246 247 / 0.5);
+}
+
+html.is-dark .border-slate-200,
+html.is-dark .border-slate-300 {
+    border-color: rgb(246 246 247 / 0.16);
+}
+
+/* On paper the primary action is near-black; on ink it inverts to white.
+   The neutral ramp alone can't do this — brand-600 is almost invisible
+   against the dark world. */
+html.is-dark .bg-brand-600 {
+    background-color: var(--paper);
+    color: var(--ink-900);
+}
+
+html.is-dark .bg-brand-600:hover {
+    background-color: #ffffff;
+}
+
+html.is-dark a:focus-visible,
+html.is-dark button:focus-visible,
+html.is-dark input:focus-visible,
+html.is-dark textarea:focus-visible,
+html.is-dark select:focus-visible,
+html.is-dark [tabindex]:focus-visible {
+    outline-color: var(--paper);
+}
+
+/* Chips and hairlines on ink: a light wash rather than a tinted fill. */
+html.is-dark .tag-pill {
+    background: rgb(246 246 247 / 0.07);
+    border-color: rgb(246 246 247 / 0.18);
+    color: rgb(246 246 247 / 0.78);
+}
+
+html.is-dark .tag-pill:hover {
+    background: rgb(246 246 247 / 0.13);
+    border-color: rgb(246 246 247 / 0.34);
+}
+
+html.is-dark .service-item,
+html.is-dark .process::before,
+html.is-dark [data-stagger] {
+    border-color: rgb(246 246 247 / 0.16);
+}
+
+html.is-dark .service-toggle {
+    border-color: rgb(246 246 247 / 0.3);
+}
+
+html.is-dark .service-toggle::before,
+html.is-dark .service-toggle::after {
+    background: var(--paper);
+}
+
+html.is-dark .service-item[open] .service-toggle {
+    background: var(--paper);
+    border-color: var(--paper);
+}
+
+html.is-dark .service-item[open] .service-toggle::before,
+html.is-dark .service-item[open] .service-toggle::after {
+    background: var(--ink-900);
+}
+
+html.is-dark .process__dot {
+    background: var(--ink-800);
+    border-color: rgb(246 246 247 / 0.28);
+    color: rgb(246 246 247 / 0.7);
+}
+
+html.is-dark .process__step.is-active .process__dot {
+    background: var(--paper);
+    border-color: var(--paper);
+    color: var(--ink-900);
+    box-shadow: 0 0 0 5px rgb(246 246 247 / 0.1);
+}
+
+html.is-dark [data-spy-active] {
+    color: var(--paper);
+    background: rgb(246 246 247 / 0.09);
+}
+
+/* The work rows' hover wash and the timeline fill both read as light
+   lifting off the page rather than a tint laid over it. */
+html.is-dark .work-row::before {
+    background: linear-gradient(90deg, rgb(246 246 247 / 0.09), rgb(246 246 247 / 0.02));
+}
+
+html.is-dark .work-row__arrow,
+html.is-dark .work-row__index,
+html.is-dark .service-index {
+    color: rgb(246 246 247 / 0.6);
+}
+
+html.is-dark .process::after,
+html.is-dark .sidebar-indicator,
+html.is-dark .chapter-rail__track::after {
+    background: var(--paper);
+}
+
+/* Surfaces that carry their own white fill have to be inverted explicitly —
+   the text-colour rules above would otherwise leave white type on a white
+   card. Caught on the Work index and the contact form, where the titles and
+   every input had gone invisible. */
+html.is-dark .project-card {
+    background: rgb(246 246 247 / 0.05);
+    border-color: rgb(246 246 247 / 0.14);
+}
+
+html.is-dark .project-card:hover {
+    border-color: rgb(246 246 247 / 0.32);
+    box-shadow: 0 24px 60px -28px rgb(0 0 0 / 0.8);
+}
+
+html.is-dark input,
+html.is-dark textarea,
+html.is-dark select {
+    background: rgb(246 246 247 / 0.06);
+    border-color: rgb(246 246 247 / 0.2);
+    color: var(--paper);
+}
+
+html.is-dark input::placeholder,
+html.is-dark textarea::placeholder {
+    color: rgb(246 246 247 / 0.38);
+}
+
+/* Validation messages and success banners keep their meaning: tinted, but
+   pitched for a dark surface rather than a white one. */
+html.is-dark .bg-green-50 {
+    background: rgb(34 197 94 / 0.12);
+    color: rgb(134 239 172);
+}
+
+html.is-dark .text-red-600 {
+    color: rgb(252 165 165);
+}
+
+html.is-dark .border-red-400 {
+    border-color: rgb(248 113 113 / 0.7);
 }
 
 /* Switched on by app.js once the WebGL scene is actually live, so only
@@ -35,21 +227,30 @@
     --font-serif: 'Playfair Display', ui-serif, Georgia, serif;
     --font-mono: 'JetBrains Mono', ui-monospace, 'SFMono-Regular', Menlo, monospace;
 
-    --color-brand-50: #eef5ff;
-    --color-brand-100: #dcebff;
-    --color-brand-200: #b9d6ff;
-    --color-brand-300: #86b9ff;
-    --color-brand-400: #4d94ff;
-    --color-brand-500: #168bff;
-    --color-brand-600: #1557e8;
-    --color-brand-700: #1043b8;
-    --color-brand-800: #0f3690;
-    --color-brand-900: #0c2a6e;
-    --color-brand-cyan: #27c9f2;
+    /* The brand ramp is now a neutral grey ramp. Redefining the tokens
+       rather than rewriting the ~40 rules that reference them turns every
+       pill, toggle, rule, focus ring and marker monochrome in one place —
+       and keeps the ramp available if colour is ever wanted back.
+       The logo keeps its blue (it is hardcoded in the SVG, and the wordmark
+       gradient below is pinned to match it): one spot of colour in an
+       otherwise neutral site reads as a signature. */
+    --color-brand-50: #f1f1f2;
+    --color-brand-100: #e3e3e6;
+    --color-brand-200: #c8c9cd;
+    --color-brand-300: #a7a8ae;
+    --color-brand-400: #84858c;
+    --color-brand-500: #5e5f66;
+    --color-brand-600: #2a2b30;
+    --color-brand-700: #1b1c20;
+    --color-brand-800: #121317;
+    --color-brand-900: #0c0d10;
+    --color-brand-cyan: #8e9096;
 }
 
+/* Pinned to the logo's own hex values so the wordmark still matches the
+   mark beside it, independent of the neutral ramp above. */
 .text-brand-gradient {
-    background-image: linear-gradient(135deg, var(--color-brand-600) 0%, var(--color-brand-500) 55%, var(--color-brand-cyan) 100%);
+    background-image: linear-gradient(135deg, #1557e8 0%, #168bff 55%, #27c9f2 100%);
     background-clip: text;
     -webkit-background-clip: text;
     color: transparent;
@@ -96,10 +297,41 @@
     pointer-events: none;
 }
 
+#page-loader {
+    flex-direction: column;
+    gap: 28px;
+    background: var(--ink-900);
+}
+
 .page-loader-logo {
-    width: 96px;
-    height: 96px;
+    width: 72px;
+    height: 72px;
     animation: loader-pulse 1.6s ease-in-out infinite;
+}
+
+.page-loader-count {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    letter-spacing: 0.34em;
+    color: rgb(246 246 247 / 0.55);
+    font-variant-numeric: tabular-nums;
+}
+
+.page-loader-bar {
+    display: block;
+    width: 160px;
+    height: 1px;
+    overflow: hidden;
+    background: rgb(246 246 247 / 0.16);
+}
+
+.page-loader-bar i {
+    display: block;
+    width: 100%;
+    height: 100%;
+    background: var(--paper);
+    transform: scaleX(0);
+    transform-origin: left;
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -127,11 +359,11 @@
 .stage-vignette {
     inset: 0;
     opacity: 0;
-    background: radial-gradient(ellipse 85% 75% at 50% 45%, transparent 40%, rgb(3 16 48 / 0.42) 100%);
+    background: radial-gradient(ellipse 85% 75% at 50% 45%, transparent 38%, rgb(0 0 0 / 0.72) 100%);
     transition: opacity 0.8s ease;
 }
 
-.is-blue .stage-vignette {
+.is-dark .stage-vignette {
     opacity: 1;
 }
 
@@ -144,10 +376,10 @@
     opacity: 0.6;
     background: linear-gradient(
         180deg,
-        color-mix(in oklab, var(--color-brand-600) 8%, transparent) 0%,
+        rgb(8 8 10 / 7%) 0%,
         transparent 32%,
         transparent 68%,
-        color-mix(in oklab, var(--color-brand-cyan) 10%, transparent) 100%
+        rgb(8 8 10 / 9%) 100%
     );
     background-size: 100% 320vh;
     background-position: 0 calc(var(--scroll-progress, 0) * -110vh);
@@ -165,10 +397,8 @@
        Two opposing mood gradients at far higher strength are what make
        Skills genuinely feel deep indigo and Work genuinely feel teal. */
     background:
-        radial-gradient(60% 50% at 12% 18%, rgb(var(--mood-r) var(--mood-g) var(--mood-b) / 42%) 0%, transparent 66%),
-        radial-gradient(58% 48% at 88% 76%, rgb(var(--mood-r) var(--mood-g) var(--mood-b) / 30%) 0%, transparent 68%),
-        radial-gradient(50% 42% at 88% 78%, color-mix(in oklab, var(--color-brand-cyan) 14%, transparent) 0%, transparent 65%),
-        radial-gradient(42% 38% at 55% 100%, color-mix(in oklab, var(--color-brand-500) 10%, transparent) 0%, transparent 70%);
+        radial-gradient(60% 50% at 12% 18%, rgb(var(--mood-r) var(--mood-g) var(--mood-b) / 26%) 0%, transparent 66%),
+        radial-gradient(58% 48% at 88% 76%, rgb(var(--mood-r) var(--mood-g) var(--mood-b) / 18%) 0%, transparent 68%);
 }
 
 .stage-blob {
@@ -177,12 +407,16 @@
     opacity: 0.5;
 }
 
+.stage-blob {
+    opacity: 0.22;
+}
+
 .stage-blob--a {
     width: 46vw;
     height: 46vw;
     top: -12vw;
     left: -10vw;
-    background: linear-gradient(135deg, var(--color-brand-600), var(--color-brand-500));
+    background: linear-gradient(135deg, #6c6f79, #9fa2ac);
     animation: stage-drift-a 26s ease-in-out infinite;
 }
 
@@ -191,8 +425,12 @@
     height: 38vw;
     bottom: -14vw;
     right: -8vw;
-    background: linear-gradient(135deg, var(--color-brand-cyan), var(--color-brand-500));
+    background: linear-gradient(135deg, #85888f, #b4b7bf);
     animation: stage-drift-b 32s ease-in-out infinite;
+}
+
+html.is-dark .stage-blob {
+    opacity: 0.16;
 }
 
 @keyframes stage-drift-a {
@@ -290,19 +528,19 @@
        attributes on purpose, not read from them — keep the two in sync by
        hand if a section's mood colour changes. */
     #about {
-        background: radial-gradient(60% 50% at 15% 20%, color-mix(in oklab, #3147c9 16%, transparent), transparent 70%);
+        background: radial-gradient(60% 50% at 15% 20%, color-mix(in oklab, #7e8088 14%, transparent), transparent 70%);
     }
     #services {
-        background: radial-gradient(60% 50% at 85% 22%, color-mix(in oklab, #1f8fe6 16%, transparent), transparent 70%);
+        background: radial-gradient(60% 50% at 85% 22%, color-mix(in oklab, #93959b 12%, transparent), transparent 70%);
     }
     #skills {
-        background: radial-gradient(60% 50% at 15% 22%, color-mix(in oklab, #1043b8 18%, transparent), transparent 70%);
+        background: radial-gradient(60% 50% at 15% 22%, color-mix(in oklab, #6e707a 15%, transparent), transparent 70%);
     }
     #work {
-        background: radial-gradient(60% 50% at 85% 22%, color-mix(in oklab, #0ea8c4 16%, transparent), transparent 70%);
+        background: radial-gradient(60% 50% at 85% 22%, color-mix(in oklab, #9a9c9f 12%, transparent), transparent 70%);
     }
     #start {
-        background: radial-gradient(60% 50% at 15% 22%, color-mix(in oklab, #4f93f5 18%, transparent), transparent 70%);
+        background: radial-gradient(60% 50% at 15% 22%, color-mix(in oklab, #aeb0b6 14%, transparent), transparent 70%);
     }
 }
 
@@ -325,93 +563,87 @@
     font-weight: 700;
     line-height: 0.8;
     letter-spacing: -0.04em;
-    color: rgb(15 23 42 / 0.05);
+    color: rgb(8 8 10 / 0.04);
     pointer-events: none;
     user-select: none;
     transition: color 0.5s ease;
 }
 
-.is-blue .section-numeral {
-    color: rgb(255 255 255 / 0.07);
+.is-dark .section-numeral {
+    color: rgb(246 246 247 / 0.05);
 }
 
-/* The numeral sits opposite its card, in the space the 3D shape occupies,
-   so it reads as a watermark on the page rather than being hidden behind an
-   opaque panel. Left is the default (cards on the right); sections whose
-   card is on the left push it over. The bare panel is excluded — having no
-   background of its own, its numeral shows through from directly behind the
-   title, which is where an editorial folio number belongs. */
-.stage-section:has(.stage-card:not([data-side='right']):not(.stage-card--bare)) .section-numeral {
+/* Now that nothing is boxed in a panel, the numeral can sit behind its own
+   heading as a folio mark, which is where it belongs editorially. It stays
+   on whichever side the content is: left by default, pushed right when the
+   content is. */
+.stage-section:has(.stage-card[data-side='right']) .section-numeral {
     left: auto;
     right: clamp(16px, 6vw, 64px);
 }
 
-/* Registered so it can transition — the spotlight fades in/out by animating
-   this number, which the gradient's alpha reads. */
-@property --spot-o {
-    syntax: '<number>';
-    inherits: false;
-    initial-value: 0;
-}
-
-/* Glass panel: brighter at the top edge than the bottom (light falling from
-   above), a 1px inner highlight along the top edge, and a long soft shadow
-   so the card sits *above* the blue canvas instead of being printed on it.
-   The first background layer is a cursor-following spotlight (position fed
-   by initCardSpotlight() in app.js), faded in on hover via --spot-o. */
+/* No panel. Content sits directly on the page, separated by a single
+   hairline rule rather than boxed in glass — which is the whole difference
+   between a site that looks designed and one that looks composed. This
+   used to be a translucent, blurred, shadowed card on every section; the
+   cards were the single biggest thing holding the layout back.
+   The class name stays because the entrance choreography, the spotlight
+   and the section-numeral placement all key off it. */
 .stage-card {
     position: relative;
-    /* Also declared here, not only as the @property initial-value. Without
-       @property support --spot-o would be undefined, the calc() inside the
-       spotlight gradient would be invalid at computed-value time, and that
-       invalidates the *entire* background declaration — leaving a
-       transparent card with unreadable text over the blue. This way the
-       gradient always resolves; only the transition is lost. */
-    --spot-o: 0;
-    max-width: 34rem;
-    border-radius: 1.5rem;
-    border: 1px solid color-mix(in oklab, var(--color-slate-200) 80%, transparent);
-    background:
-        radial-gradient(
-            520px circle at var(--spot-x, 50%) var(--spot-y, -30%),
-            rgb(255 255 255 / calc(var(--spot-o) * 0.6)),
-            transparent 55%
-        ),
-        linear-gradient(168deg, rgb(255 255 255 / 0.9) 0%, rgb(255 255 255 / 0.72) 100%);
-    box-shadow:
-        inset 0 1px 0 rgb(255 255 255 / 0.85),
-        0 1px 2px rgb(15 23 42 / 0.05),
-        0 28px 64px -30px rgb(12 34 96 / 0.42);
-    backdrop-filter: blur(18px) saturate(1.35);
-    padding: clamp(1.75rem, 4vw, 2.75rem);
-    transition: --spot-o 0.45s ease;
+    /* Deliberately narrow. The 3D now runs off the opposite edge of the
+       viewport, so the text column has to stop well short of centre or the
+       two collide — and a short measure is better typography anyway. */
+    max-width: 32rem;
+    padding-top: 1.5rem;
+    border-top: 1px solid rgb(8 8 10 / 0.16);
 }
 
-.stage-card:hover {
-    --spot-o: 1;
-}
-
-/* On the blue canvas a slate hairline reads as a grey smudge; a white edge
-   reads as the glass catching light. */
-.is-blue .stage-card {
-    border-color: rgb(255 255 255 / 0.6);
+.is-dark .stage-card {
+    border-top-color: rgb(246 246 247 / 0.18);
 }
 
 .stage-card[data-side='right'] {
     margin-left: auto;
 }
 
+/* The scale is the point. Section headings run to ~150px against 13px
+   labels and 15px body — the violent ratio between the two is what makes a
+   page read as editorial rather than as an interface, and it only works
+   once the panels are gone and there is room for it to breathe. */
+.section-title {
+    font-family: var(--font-serif);
+    font-size: clamp(3rem, 7.2vw, 9rem);
+    font-weight: 500;
+    line-height: 0.94;
+    letter-spacing: -0.035em;
+    text-wrap: balance;
+}
+
+.section-eyebrow {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    font-weight: 500;
+    letter-spacing: 0.22em;
+    text-transform: uppercase;
+    color: rgb(8 8 10 / 0.42);
+}
+
+.is-dark .section-eyebrow {
+    color: rgb(246 246 247 / 0.42);
+}
+
 /* Same recipe as .stage-card, wider — for long-form content (a case study,
    a form) rather than the homepage's alternating-card layout. */
 .stage-card.stage-card--wide {
-    max-width: 48rem;
+    max-width: 38rem;
 }
 
 /* Two columns once there's room: the skill list beside its explanation
    rather than stacked, which is what makes this section read differently
    from the single-column cards either side of it. */
 .stage-card.stage-card--split {
-    max-width: 44rem;
+    max-width: 38rem;
 }
 
 .stage-card__columns {
@@ -427,139 +659,6 @@
     }
 }
 
-/* No card at all: content sits straight on the blue. The one break in the
-   card-on-alternating-sides rhythm every other section follows. Only safe
-   because everything from About onward has the blue curtain behind it —
-   see the reduced-motion block below, where that curtain never runs. */
-.stage-card.stage-card--bare {
-    /* Narrow enough that the accordion's rules and toggles stop short of
-       the orb rather than running underneath it. */
-    max-width: 39rem;
-    border: none;
-    background: none;
-    box-shadow: none;
-    backdrop-filter: none;
-    padding-left: 0;
-    padding-right: 0;
-    color: white;
-}
-
-.stage-card--bare h2,
-.stage-card--bare h3 {
-    color: white;
-}
-
-.stage-card--bare > p:first-child {
-    color: rgb(255 255 255 / 0.65);
-}
-
-.stage-card--bare .service-item {
-    border-top-color: rgb(255 255 255 / 0.2);
-}
-
-.stage-card--bare .service-item + .service-item,
-.stage-card--bare [data-stagger] {
-    border-bottom-color: rgb(255 255 255 / 0.2);
-}
-
-.stage-card--bare .service-index {
-    color: rgb(255 255 255 / 0.5);
-}
-
-.stage-card--bare .service-body p {
-    color: rgb(255 255 255 / 0.8);
-}
-
-.stage-card--bare .service-toggle {
-    border-color: rgb(255 255 255 / 0.4);
-}
-
-.stage-card--bare .service-toggle::before,
-.stage-card--bare .service-toggle::after {
-    background: white;
-}
-
-.stage-card--bare .service-summary:hover .service-toggle {
-    border-color: white;
-}
-
-.stage-card--bare .service-item[open] .service-toggle {
-    background: white;
-    border-color: white;
-}
-
-.stage-card--bare .service-item[open] .service-toggle::before,
-.stage-card--bare .service-item[open] .service-toggle::after {
-    background: var(--color-brand-700);
-}
-
-/* The tag pills keep their light fill, which reads correctly as a chip on
-   blue — but the border has to lift off the brand palette to stay visible. */
-.stage-card--bare .tag-pill {
-    border-color: rgb(255 255 255 / 0.5);
-}
-
-@media (prefers-reduced-motion: reduce) {
-    /* No canvas means no blue curtain, so white-on-white would be
-       invisible. The card comes back and every override above is undone. */
-    .stage-card.stage-card--bare {
-        max-width: 38rem;
-        border: 1px solid color-mix(in oklab, var(--color-slate-200) 80%, transparent);
-        background: linear-gradient(168deg, rgb(255 255 255 / 0.9) 0%, rgb(255 255 255 / 0.72) 100%);
-        box-shadow:
-            inset 0 1px 0 rgb(255 255 255 / 0.85),
-            0 28px 64px -30px rgb(12 34 96 / 0.42);
-        backdrop-filter: blur(18px) saturate(1.35);
-        padding-left: clamp(1.75rem, 4vw, 2.75rem);
-        padding-right: clamp(1.75rem, 4vw, 2.75rem);
-        color: inherit;
-    }
-
-    .stage-card--bare h2,
-    .stage-card--bare h3 {
-        color: var(--color-slate-900);
-    }
-
-    .stage-card--bare > p:first-child {
-        color: var(--color-brand-600);
-    }
-
-    .stage-card--bare .service-body p {
-        color: var(--color-slate-600);
-    }
-
-    .stage-card--bare .service-item,
-    .stage-card--bare [data-stagger] {
-        border-color: color-mix(in oklab, var(--color-slate-900) 10%, transparent);
-    }
-
-    .stage-card--bare .service-index {
-        color: color-mix(in oklab, var(--color-brand-600) 70%, transparent);
-    }
-
-    .stage-card--bare .service-toggle {
-        border-color: var(--color-brand-200);
-    }
-
-    .stage-card--bare .service-toggle::before,
-    .stage-card--bare .service-toggle::after {
-        background: var(--color-brand-600);
-    }
-
-    .stage-card--bare .service-item[open] .service-toggle {
-        background: var(--color-brand-600);
-        border-color: var(--color-brand-600);
-    }
-
-    .stage-card--bare .service-item[open] .service-toggle::before,
-    .stage-card--bare .service-item[open] .service-toggle::after {
-        background: white;
-    }
-
-    .stage-card--bare .tag-pill {
-        border-color: var(--color-brand-100);
-    }
-}
 
 @media (max-width: 767px) {
     .stage-card[data-side='right'] {
@@ -620,6 +719,39 @@
     .tag-pill:hover {
         transform: none;
     }
+}
+
+/* The rail belongs to whichever world the page is in. */
+.is-dark aside {
+    border-color: rgb(246 246 247 / 0.12) !important;
+    background: var(--ink-900) !important;
+}
+
+.is-dark aside a {
+    color: rgb(246 246 247 / 0.55);
+}
+
+.is-dark aside a:hover {
+    color: var(--paper);
+    background: rgb(246 246 247 / 0.08);
+}
+
+.is-dark .sidebar-tooltip {
+    border-color: rgb(246 246 247 / 0.18);
+    background: rgb(20 20 24 / 0.95);
+    color: var(--paper);
+}
+
+.is-dark .motion-toggle,
+.is-dark .orb-hint {
+    border-color: rgb(246 246 247 / 0.2);
+    background: rgb(20 20 24 / 0.72);
+    color: rgb(246 246 247 / 0.72);
+}
+
+.is-dark header {
+    border-color: rgb(246 246 247 / 0.12);
+    background: rgb(8 8 10 / 0.9);
 }
 
 /* The icon-only sidebar rail's label — carries the text an icon alone can't,
@@ -729,19 +861,19 @@
     transform: translateY(-50%);
 }
 
-.is-blue .chapter-rail a {
+.is-dark .chapter-rail a {
     color: rgb(255 255 255 / 0.75);
 }
 
-.is-blue .chapter-rail a[aria-current='true'] {
+.is-dark .chapter-rail a[aria-current='true'] {
     color: white;
 }
 
-.is-blue .chapter-rail__track {
+.is-dark .chapter-rail__track {
     background: rgb(255 255 255 / 0.22);
 }
 
-.is-blue .chapter-rail__track::after {
+.is-dark .chapter-rail__track::after {
     background: white;
 }
 
@@ -761,7 +893,7 @@
     transition: color 0.4s ease;
 }
 
-.is-blue .section-caption {
+.is-dark .section-caption {
     color: rgb(255 255 255 / 0.75);
 }
 
@@ -847,6 +979,84 @@
     cursor: grab;
     touch-action: none;
     user-select: none;
+}
+
+/* Corner ticks on the primary actions — the bracketed, instrument-panel
+   detailing both reference sites use. Drawn with two conic-free corner
+   gradients rather than extra elements, and offset outside the button so
+   they frame it rather than crowd the label. */
+[data-magnetic]::before,
+[data-magnetic]::after {
+    content: '';
+    position: absolute;
+    width: 7px;
+    height: 7px;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.35s ease;
+}
+
+[data-magnetic]::before {
+    top: -5px;
+    left: -5px;
+    border-top: 1px solid currentColor;
+    border-left: 1px solid currentColor;
+}
+
+[data-magnetic]::after {
+    right: -5px;
+    bottom: -5px;
+    border-right: 1px solid currentColor;
+    border-bottom: 1px solid currentColor;
+}
+
+[data-magnetic] {
+    position: relative;
+}
+
+[data-magnetic]:hover::before,
+[data-magnetic]:hover::after,
+[data-magnetic]:focus-visible::before,
+[data-magnetic]:focus-visible::after {
+    opacity: 0.5;
+}
+
+/* --- Receding chrome -------------------------------------------------
+   Set by initChromeFade() once scrolling stops. Opacity only — nothing
+   leaves the page or the accessibility tree, and hovering or focusing any
+   of it brings that piece straight back. */
+.chrome-dim .chapter-rail,
+.chrome-dim .section-caption,
+.chrome-dim .motion-toggle {
+    opacity: 0.18;
+}
+
+.chapter-rail,
+.section-caption,
+.motion-toggle {
+    transition:
+        opacity 0.7s ease,
+        color 0.4s ease,
+        border-color 0.4s ease;
+}
+
+.chrome-dim .chapter-rail:hover,
+.chrome-dim .chapter-rail:focus-within,
+.chrome-dim .motion-toggle:hover,
+.chrome-dim .motion-toggle:focus-visible {
+    opacity: 1;
+}
+
+/* The rail's own nav icons sit back a little too, so the mark and the one
+   primary action are what the eye lands on. */
+.chrome-dim aside nav a {
+    opacity: 0.4;
+    transition: opacity 0.7s ease;
+}
+
+.chrome-dim aside:hover nav a,
+.chrome-dim aside:focus-within nav a {
+    opacity: 1;
 }
 
 .chapter-rail a {
@@ -1431,7 +1641,7 @@ select:focus-visible,
     transition: color 0.4s ease;
 }
 
-.is-blue .finale__colophon {
+.is-dark .finale__colophon {
     color: rgb(255 255 255 / 0.75);
 }
 

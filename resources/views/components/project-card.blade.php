@@ -3,7 +3,7 @@
 {{-- h-full plus a column layout so every card in the grid ends level,
      whatever its title wraps to — ragged card bottoms were invisible behind
      the old generated placeholders and obvious once real screenshots went in. --}}
-<article class="group h-full overflow-hidden rounded-2xl border border-slate-200 bg-white/80 backdrop-blur-sm transition hover:-translate-y-1 hover:border-brand-200 hover:shadow-lg">
+<article class="project-card group h-full overflow-hidden rounded-2xl border border-slate-200 bg-white/80 backdrop-blur-sm transition hover:-translate-y-1 hover:border-brand-200 hover:shadow-lg">
     <a href="{{ route('work.show', $project) }}" data-cursor-text="View" class="flex h-full flex-col">
         <div class="aspect-video w-full shrink-0 overflow-hidden">
             @if ($project->image)

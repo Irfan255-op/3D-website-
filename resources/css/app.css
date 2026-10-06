@@ -1573,7 +1573,7 @@ select:focus-visible,
 #cursor-ring.is-orb #cursor-ring-inner {
     transform: scale(1.45);
     background: color-mix(in oklab, white 18%, transparent);
-    border-color: color-mix(in oklab, #f29bc4 70%, transparent);
+    border-color: rgb(246 246 247 / 0.7);
 }
 
 #cursor-ring.is-labelled #cursor-ring-inner {

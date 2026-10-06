@@ -473,9 +473,9 @@ function buildHeroSphere(THREE, canvas, RoomEnvironment) {
         // permanently blue from About onward) left the orb barely
         // distinguishable from its own backdrop. A warm, light palette
         // reads clearly regardless of what hue is behind it.
-        uColorA: { value: new THREE.Color('#e8a0bc') },
-        uColorB: { value: new THREE.Color('#f5c2d6') },
-        uColorC: { value: new THREE.Color('#f29bc4') },
+        uColorA: { value: new THREE.Color('#bfc0c6') },
+        uColorB: { value: new THREE.Color('#e9e9ed') },
+        uColorC: { value: new THREE.Color('#d2d3d9') },
         // Page light source: top-right corner, slightly toward the viewer.
         uLightDir: { value: new THREE.Vector3(0.6, 0.7, 0.55).normalize() },
     };
@@ -628,7 +628,7 @@ function buildHeroSphere(THREE, canvas, RoomEnvironment) {
             // nacre's shadow side is a colour, not grey.
             float diffuse = clamp(dot(n, lightDir) * 0.6 + 0.4, 0.0, 1.0);
             float ambient = 0.78;
-            vec3 shadowTint = vec3(0.9, 0.86, 1.0);
+            vec3 shadowTint = vec3(0.86, 0.87, 0.92);
             vec3 shaded = base * mix(shadowTint * ambient, vec3(1.0), diffuse);
 
             // A dimmer, wider highlight than a plastic specular dot — light
@@ -643,7 +643,7 @@ function buildHeroSphere(THREE, canvas, RoomEnvironment) {
             // toward the pink rim colour. Warmed from a cool blue-white to
             // match the new pearl palette — the old cool tint fought the
             // pink everywhere except right at the fresnel edge.
-            color = mix(color, vec3(0.98, 0.93, 0.95), (1.0 - fresnel) * 0.3);
+            color = mix(color, vec3(0.96, 0.96, 0.97), (1.0 - fresnel) * 0.3);
 
             // Nacre: a thin-film hue drift (cosine palette) that only lives
             // toward the rim and shifts with the surface's tilt, so the edge
@@ -651,7 +651,7 @@ function buildHeroSphere(THREE, canvas, RoomEnvironment) {
             // mother-of-pearl does. Kept faint and rim-masked — the body
             // colour stays the pearl-pink the user signed off on.
             vec3 nacre = 0.5 + 0.5 * cos(6.28318 * (fresnel * 1.15 + n.y * 0.18 + vWave * 0.25 + vec3(0.0, 0.33, 0.67)));
-            color = mix(color, color + nacre * 0.24, smoothstep(0.2, 0.95, fresnel) * 0.6);
+            color = mix(color, color + nacre * 0.06, smoothstep(0.5, 0.98, fresnel) * 0.35);
 
             // Bounce light from below-left. In a monochrome world there is
             // no coloured surround to pick up, so this is a cool neutral
@@ -723,7 +723,7 @@ function buildHeroSphere(THREE, canvas, RoomEnvironment) {
             // its own fresnel sheen) so it reads as light coming from inside
             // the glass rather than another rim highlight.
             float pulse = sin(uTime * ${BREATH_RATE.toFixed(5)}) * 0.5 + 0.5;
-            color += vec3(1.0, 0.93, 0.95) * pulse * 0.4 * uBeacon * (1.0 - fresnel);
+            color += vec3(1.0, 1.0, 1.0) * pulse * 0.4 * uBeacon * (1.0 - fresnel);
 
             gl_FragColor = vec4(color, alpha * uGlobalAlpha);
         }
@@ -768,7 +768,7 @@ function buildHeroSphere(THREE, canvas, RoomEnvironment) {
     // section, which a hue-matched one structurally can't. Fixed once at
     // creation rather than updated per frame, since it no longer needs to
     // track anything that changes.
-    const RING_PALETTE = [new THREE.Color('#f2a8cc'), new THREE.Color('#fbeef3')];
+    const RING_PALETTE = [new THREE.Color('#cfd0d6'), new THREE.Color('#f0f0f3')];
 
     // Tilted at two different angles (not a shared one) rather than face-on
     // circles — reads more like two differently-inclined orbital planes
@@ -1089,14 +1089,14 @@ function buildHeroSphere(THREE, canvas, RoomEnvironment) {
         // pearl-pink recolour. The cyan core and cyan hover glow stay as
         // the accent.
         const ringMaterial = new THREE.MeshPhysicalMaterial({
-            color: new THREE.Color('#f6d9e6'),
+            color: new THREE.Color('#e6e6ea'),
             emissive: new THREE.Color('#ffffff'),
             emissiveIntensity: 0,
             metalness: 0.15,
             roughness: 0.2,
             clearcoat: 1,
             clearcoatRoughness: 0.1,
-            iridescence: 0.9,
+            iridescence: 0.28,
             iridescenceIOR: 1.35,
             iridescenceThicknessRange: [180, 420],
             transparent: true,
@@ -1159,12 +1159,12 @@ function buildHeroSphere(THREE, canvas, RoomEnvironment) {
     // the two sections don't read as the same object) — was #168bff, which
     // sank into the blue canvas as near-black silhouettes.
     const discMaterial = new THREE.MeshPhysicalMaterial({
-        color: new THREE.Color('#ece6f7'),
+        color: new THREE.Color('#ebebee'),
         metalness: 0.12,
         roughness: 0.18,
         clearcoat: 1,
         clearcoatRoughness: 0.08,
-        iridescence: 0.8,
+        iridescence: 0.25,
         iridescenceIOR: 1.3,
         iridescenceThicknessRange: [220, 480],
         transparent: true,
@@ -1264,7 +1264,7 @@ function buildHeroSphere(THREE, canvas, RoomEnvironment) {
     // Compensates for the group's own scale, which went from about 1 to 2.5
     // when the shapes were sized to bleed off the viewport. Left at 1.3 the
     // assembled phone stood several times taller than the screen.
-    const DEVICE_SCALE = 0.55;
+    const DEVICE_SCALE = 0.85;
     const AXIS_X = new THREE.Vector3(1, 0, 0);
     const AXIS_Y = new THREE.Vector3(0, 1, 0);
     const AXIS_Z = new THREE.Vector3(0, 0, 1);
@@ -1609,12 +1609,12 @@ function buildHeroSphere(THREE, canvas, RoomEnvironment) {
     const LOGO_SCALE = 1.75 / 545;
 
     const logoMaterial = new THREE.MeshPhysicalMaterial({
-        color: new THREE.Color('#f3ecfb'),
+        color: new THREE.Color('#f0f0f3'),
         metalness: 0.25,
         roughness: 0.16,
         clearcoat: 1,
         clearcoatRoughness: 0.08,
-        iridescence: 1,
+        iridescence: 0.3,
         iridescenceIOR: 1.4,
         iridescenceThicknessRange: [200, 520],
         transparent: true,
@@ -1702,7 +1702,7 @@ function buildHeroSphere(THREE, canvas, RoomEnvironment) {
     // geometry rendered twice (front faces outside, back faces inside) gets
     // both without needing two meshes' worth of vertices or a custom shader.
     const shellOuterMaterial = new THREE.MeshPhysicalMaterial({
-        color: new THREE.Color('#e6ddd9'),
+        color: new THREE.Color('#d6d6da'),
         metalness: 0.05,
         roughness: 0.66,
         clearcoat: 0.3,
@@ -1713,12 +1713,12 @@ function buildHeroSphere(THREE, canvas, RoomEnvironment) {
     });
 
     const shellInnerMaterial = new THREE.MeshPhysicalMaterial({
-        color: new THREE.Color('#fbeaf2'),
+        color: new THREE.Color('#f3f3f5'),
         metalness: 0.3,
         roughness: 0.12,
         clearcoat: 1,
         clearcoatRoughness: 0.06,
-        iridescence: 1,
+        iridescence: 0.3,
         iridescenceIOR: 1.45,
         iridescenceThicknessRange: [120, 560],
         side: THREE.BackSide,
@@ -1764,14 +1764,14 @@ function buildHeroSphere(THREE, canvas, RoomEnvironment) {
     // physical: you throwing it.
     const fragmentMaterial = new THREE.MeshPhysicalMaterial({
         // The orb's pearl-pink (uColorA) — the orb is what gets thrown most.
-        color: new THREE.Color('#e8a0bc'),
+        color: new THREE.Color('#cdcdd3'),
         metalness: 0.12,
         roughness: 0.25,
         clearcoat: 1,
         clearcoatRoughness: 0.15,
         // Same thin-film coat as the rings/blocks, so mid-burst the shards
         // flash the orb's nacre colours as they tumble through the light.
-        iridescence: 0.7,
+        iridescence: 0.22,
         iridescenceIOR: 1.3,
         transparent: true,
         opacity: 0,
@@ -2254,7 +2254,7 @@ function buildHeroSphere(THREE, canvas, RoomEnvironment) {
 
                 void main() {
                     float core = smoothstep(0.5, 0.0, length(gl_PointCoord - 0.5));
-                    vec3 tint = mix(vec3(1.0, 0.95, 0.93), vec3(0.74, 0.78, 0.86), vSpark);
+                    vec3 tint = mix(vec3(0.97, 0.97, 0.98), vec3(0.72, 0.74, 0.8), vSpark);
                     vec3 color = mix(tint, vec3(1.0), core * 0.55);
                     gl_FragColor = vec4(color, core * core * uAlpha * vLuma * mix(1.0, vTwinkle, vFlight));
                 }
@@ -2924,7 +2924,7 @@ function buildHeroSphere(THREE, canvas, RoomEnvironment) {
         // the shape runs off the edges rather than sitting politely in one
         // half. A phone has nowhere near that room, so compact view scales
         // it right back down and lifts it above the copy.
-        const adapt = (pose) => (compact ? { ...pose, x: 0, y: pose.y + 1.5, scale: pose.scale * 0.32 } : pose);
+        const adapt = (pose) => (compact ? { ...pose, x: 0, y: pose.y + 1.75, scale: pose.scale * 0.5 } : pose);
 
         compactView = compact;
 
@@ -2942,7 +2942,7 @@ function buildHeroSphere(THREE, canvas, RoomEnvironment) {
                 // Scaled to be cropped by the viewport like every other
                 // waypoint — the shape is a field running off the edge of
                 // the page, not an object sitting beside the copy.
-                pose: adapt({ x: 2.3, y: 0, scale: 2.2, rotZ: 0, spike: 0, bands: 0, fade: 1, gem: 0, discs: 0, beacon: 0, logo: 0, morph: 0, ...moodKeysFromHex(hero.dataset.sphereMood) }),
+                pose: adapt({ x: 2.05, y: 0, scale: 1.5, rotZ: 0, spike: 0, bands: 0, fade: 1, gem: 0, discs: 0, beacon: 0, logo: 0, morph: 0, ...moodKeysFromHex(hero.dataset.sphereMood) }),
             });
         }
 

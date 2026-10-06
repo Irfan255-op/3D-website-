@@ -18,6 +18,6 @@
     ></div>
 
     @if ($label)
-        <span class="relative font-serif text-2xl italic text-white/70">{{ $label }}</span>
+        <span class="relative px-6 text-center font-serif text-2xl italic text-white/70">{{ $label }}</span>
     @endif
 </div>

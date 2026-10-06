@@ -29,6 +29,12 @@ if (window.location.hash) {
 
 let lenis = null;
 
+// Resolves the moment the page loader starts fading out (immediately if the
+// page has no loader). Intro choreography — the hero copy's staged rise, the
+// orb's entrance — waits on this so it plays in view instead of finishing
+// unseen behind the loader.
+let pageReady = Promise.resolve();
+
 function initPageLoader() {
     const loader = document.getElementById('page-loader');
 
@@ -52,7 +58,12 @@ function initPageLoader() {
         'fonts' in document ? document.fonts.ready : Promise.resolve(),
     ]);
 
-    ready.then(hide).catch(hide);
+    // Capped at the same 3s as the CSS auto-hide fallback on #page-loader:
+    // the hero copy now starts hidden and waits on this, so a `load` event
+    // held up by one slow third-party request must never mean a blank hero.
+    const timeout = new Promise((resolve) => window.setTimeout(resolve, 3000));
+
+    pageReady = Promise.race([ready, timeout]).then(hide, hide);
 }
 
 function initSmoothScroll() {
@@ -78,6 +89,82 @@ function initScrollReveal() {
     if (prefersReducedMotion) {
         return;
     }
+
+    // Hero: one staged sequence timed to the loader lifting, rather than five
+    // independent scroll triggers that all fired on the same first frame (and
+    // usually finished behind the loader, unseen).
+    const heroItems = gsap.utils.toArray('[data-sphere-hero] [data-animate]');
+
+    if (heroItems.length) {
+        gsap.set(heroItems, { opacity: 0, y: 40 });
+        pageReady.then(() => {
+            gsap.to(heroItems, {
+                opacity: 1,
+                y: 0,
+                duration: 1.3,
+                ease: 'expo.out',
+                stagger: 0.09,
+                clearProps: 'transform',
+            });
+        });
+    }
+
+    // The hero copy drifts up and dims as you leave it, a beat ahead of the
+    // blue curtain swallowing the frame — so the handoff reads as depth (copy
+    // nearer the camera than the orb) instead of everything being covered at
+    // one flat rate.
+    const heroContent = document.querySelector('[data-hero-content]');
+
+    if (heroContent) {
+        gsap.to(heroContent, {
+            yPercent: -14,
+            opacity: 0.15,
+            ease: 'none',
+            scrollTrigger: {
+                trigger: '[data-sphere-hero]',
+                start: 'top top',
+                end: 'bottom 25%',
+                scrub: true,
+            },
+        });
+    }
+
+    // Homepage stage cards enter from the side they sit on — the side the orb
+    // has just vacated — with a slight swing through depth, then their
+    // contents settle in one after another. [data-stagger] containers (tag
+    // lists, the services accordion, project rows, process steps) stagger per
+    // child instead of arriving as one block.
+    const stageCards = gsap.utils.toArray('[data-sphere-x] > .stage-card[data-animate]');
+    const wide = window.innerWidth >= 1024;
+
+    stageCards.forEach((card) => {
+        const fromRight = card.dataset.side === 'right';
+        const items = card.querySelectorAll(':scope > :not([data-stagger]), [data-stagger] > *');
+        const timeline = gsap.timeline({
+            scrollTrigger: { trigger: card, start: 'top 85%', once: true, invalidateOnRefresh: true },
+        });
+
+        timeline
+            .fromTo(
+                card,
+                wide
+                    ? {
+                          opacity: 0,
+                          x: fromRight ? 90 : -90,
+                          rotationY: fromRight ? -9 : 9,
+                          transformPerspective: 1400,
+                          transformOrigin: fromRight ? '100% 50%' : '0% 50%',
+                      }
+                    : { opacity: 0, y: 56 },
+                { opacity: 1, x: 0, y: 0, rotationY: 0, duration: 1.25, ease: 'expo.out', clearProps: 'transform,opacity' }
+            )
+            .fromTo(
+                items,
+                { opacity: 0, y: 22 },
+                { opacity: 1, y: 0, duration: 0.9, ease: 'power3.out', stagger: 0.055, clearProps: 'transform,opacity' },
+                0.18
+            );
+    });
 
     gsap.utils.toArray('[data-animate-group]').forEach((group) => {
         const items = group.querySelectorAll('[data-animate]');
@@ -113,7 +200,7 @@ function initScrollReveal() {
 
     const standalone = gsap.utils
         .toArray('[data-animate]')
-        .filter((el) => !el.closest('[data-animate-group]'));
+        .filter((el) => !el.closest('[data-animate-group]') && !heroItems.includes(el) && !stageCards.includes(el));
 
     standalone.forEach((el) => {
         gsap.fromTo(
@@ -215,8 +302,8 @@ function initHeroSphere() {
         return;
     }
 
-    import('three')
-        .then((THREE) => buildHeroSphere(THREE, canvas))
+    Promise.all([import('three'), import('three/addons/environments/RoomEnvironment.js')])
+        .then(([THREE, { RoomEnvironment }]) => buildHeroSphere(THREE, canvas, RoomEnvironment))
         .catch((error) => {
             console.error('Hero sphere failed to load:', error);
             canvas.remove();
@@ -241,7 +328,7 @@ function moodKeysFromHex(hex) {
     return { moodR: rgb.r, moodG: rgb.g, moodB: rgb.b };
 }
 
-function buildHeroSphere(THREE, canvas) {
+function buildHeroSphere(THREE, canvas, RoomEnvironment) {
     const renderer = new THREE.WebGLRenderer({ canvas, alpha: true, antialias: true });
     renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
 
@@ -249,15 +336,33 @@ function buildHeroSphere(THREE, canvas) {
     const camera = new THREE.PerspectiveCamera(42, 1, 0.1, 100);
     camera.position.set(0, 0, 6.2);
 
-    // Real scene lights, used only by the faceted gem (Skills) and stacked
-    // discs (Work) below — the main orb and everything else fake their own
-    // lighting inside a custom shader and ignore these entirely. Matches the
-    // orb's existing top-right light direction so the two families read as
-    // lit by the same source.
-    const keyLight = new THREE.DirectionalLight(0xffffff, 2.4);
+    // Image-based lighting for every physical material in the scene (the
+    // gyroscope rings, the floating blocks, the burst shards): a prefiltered
+    // studio "room" they reflect, so clearcoat and iridescence have actual
+    // surroundings to catch instead of one lone directional highlight on
+    // otherwise flat colour — the difference between a lit object and a
+    // tinted silhouette. The orb, its halo rings and the text bands use
+    // their own shaders/basic materials and are unaffected by design.
+    const pmrem = new THREE.PMREMGenerator(renderer);
+    scene.environment = pmrem.fromScene(new RoomEnvironment(), 0.04).texture;
+    scene.environmentIntensity = 0.85;
+    pmrem.dispose();
+
+    // Real scene lights, used only by the physical-material shapes below —
+    // the main orb and everything else fake their own lighting inside a
+    // custom shader and ignore these entirely. Matches the orb's existing
+    // top-right light direction so the two families read as lit by the same
+    // source. Ambient lowered now the environment map carries the fill.
+    const keyLight = new THREE.DirectionalLight(0xffffff, 2.2);
     keyLight.position.set(3, 3.5, 3);
     scene.add(keyLight);
-    scene.add(new THREE.AmbientLight(0xbfe0ff, 0.55));
+    scene.add(new THREE.AmbientLight(0xbfe0ff, 0.25));
+
+    // Cached rather than read per frame: tick() writes CSS custom properties
+    // on <html> every frame, so a per-frame getBoundingClientRect() would
+    // force a full synchronous style recalc each time. The canvas is
+    // position:fixed, so its rect only ever changes on resize.
+    let canvasRect = canvas.getBoundingClientRect();
 
     function resize() {
         const width = canvas.clientWidth || window.innerWidth;
@@ -266,6 +371,7 @@ function buildHeroSphere(THREE, canvas) {
         renderer.setSize(width, height, false);
         camera.aspect = width / height;
         camera.updateProjectionMatrix();
+        canvasRect = canvas.getBoundingClientRect();
     }
 
     const uniforms = {
@@ -378,9 +484,17 @@ function buildHeroSphere(THREE, canvas) {
             // Frosted glass scatters light evenly rather than casting a hard
             // directional shadow, so the ambient floor sits much higher than
             // the old solid-gloss material used.
-            float diffuse = max(dot(n, lightDir), 0.0);
-            float ambient = 0.62;
-            vec3 shaded = base * (ambient + (1.0 - ambient) * diffuse);
+            // Ambient raised from 0.62: the unlit lower-left of the orb was
+            // sinking to a muddy mauve, which read as a dirty plastic ball
+            // rather than a pearl — a pearl's shadow side stays luminous.
+            // Wrapped (half-Lambert-style) falloff, so the terminator rolls
+            // off softly the way light does through a translucent shell,
+            // and shadows tinted a cool lavender instead of just darkened —
+            // nacre's shadow side is a colour, not grey.
+            float diffuse = clamp(dot(n, lightDir) * 0.6 + 0.4, 0.0, 1.0);
+            float ambient = 0.78;
+            vec3 shadowTint = vec3(0.9, 0.86, 1.0);
+            vec3 shaded = base * mix(shadowTint * ambient, vec3(1.0), diffuse);
 
             // A dimmer, wider highlight than a plastic specular dot — light
             // diffusing through a frosted surface rather than bouncing off it.
@@ -394,7 +508,22 @@ function buildHeroSphere(THREE, canvas) {
             // toward the pink rim colour. Warmed from a cool blue-white to
             // match the new pearl palette — the old cool tint fought the
             // pink everywhere except right at the fresnel edge.
-            color = mix(color, vec3(0.98, 0.93, 0.95), (1.0 - fresnel) * 0.2);
+            color = mix(color, vec3(0.98, 0.93, 0.95), (1.0 - fresnel) * 0.3);
+
+            // Nacre: a thin-film hue drift (cosine palette) that only lives
+            // toward the rim and shifts with the surface's tilt, so the edge
+            // shimmers lilac -> peach -> mint as the waves roll, the way real
+            // mother-of-pearl does. Kept faint and rim-masked — the body
+            // colour stays the pearl-pink the user signed off on.
+            vec3 nacre = 0.5 + 0.5 * cos(6.28318 * (fresnel * 1.15 + n.y * 0.18 + vWave * 0.25 + vec3(0.0, 0.33, 0.67)));
+            color = mix(color, color + nacre * 0.24, smoothstep(0.2, 0.95, fresnel) * 0.6);
+
+            // Cool bounce light from below-left: once the page is blue, the
+            // orb sits inside a blue world, and a rim that picks up a little
+            // of that colour is what makes it look lit by its surroundings
+            // instead of pasted on top of them.
+            float bounce = pow(fresnel, 1.5) * clamp(dot(n, normalize(vec3(-0.55, -0.7, 0.35))), 0.0, 1.0);
+            color += vec3(0.32, 0.7, 1.0) * bounce * 0.38;
 
             // This darkened the wave crests toward near-black (0.45x) to
             // read as "dark wet metal" against the old blue palette — fine
@@ -611,14 +740,23 @@ function buildHeroSphere(THREE, canvas) {
     const gemRings = [];
 
     for (let i = 0; i < GYRO_RING_COUNT; i += 1) {
+        // Pearl with a thin-film (iridescent) coat, matching the orb's
+        // family — these were brand blue, which on the permanently blue
+        // canvas read as dark navy bands with almost no edge definition,
+        // the same visibility problem the orb itself had before its
+        // pearl-pink recolour. The cyan core and cyan hover glow stay as
+        // the accent.
         const ringMaterial = new THREE.MeshPhysicalMaterial({
-            color: new THREE.Color('#1557e8'),
+            color: new THREE.Color('#f6d9e6'),
             emissive: new THREE.Color('#27c9f2'),
             emissiveIntensity: 0,
-            metalness: 0.2,
-            roughness: 0.25,
+            metalness: 0.15,
+            roughness: 0.2,
             clearcoat: 1,
-            clearcoatRoughness: 0.15,
+            clearcoatRoughness: 0.1,
+            iridescence: 0.9,
+            iridescenceIOR: 1.35,
+            iridescenceThicknessRange: [180, 420],
             transparent: true,
             opacity: 0,
             side: THREE.DoubleSide,
@@ -675,12 +813,18 @@ function buildHeroSphere(THREE, canvas) {
     // version — independent bobbing rather than any kind of orbit, so
     // neither this nor the Skills gyroscope rings risk echoing each other
     // or the halo rings the way the last orbiting-plates version did.
+    // Cool pearl (a lilac-white, a step away from the Skills rings' pink so
+    // the two sections don't read as the same object) — was #168bff, which
+    // sank into the blue canvas as near-black silhouettes.
     const discMaterial = new THREE.MeshPhysicalMaterial({
-        color: new THREE.Color('#168bff'),
-        metalness: 0.2,
-        roughness: 0.25,
+        color: new THREE.Color('#ece6f7'),
+        metalness: 0.12,
+        roughness: 0.18,
         clearcoat: 1,
-        clearcoatRoughness: 0.15,
+        clearcoatRoughness: 0.08,
+        iridescence: 0.8,
+        iridescenceIOR: 1.3,
+        iridescenceThicknessRange: [220, 480],
         transparent: true,
         opacity: 0,
         depthWrite: false,
@@ -738,8 +882,18 @@ function buildHeroSphere(THREE, canvas) {
         roughness: 0.25,
         clearcoat: 1,
         clearcoatRoughness: 0.15,
+        // Same thin-film coat as the rings/blocks, so mid-burst the shards
+        // flash the orb's nacre colours as they tumble through the light.
+        iridescence: 0.7,
+        iridescenceIOR: 1.3,
         transparent: true,
         opacity: 0,
+        // Same lesson as the gem/discs fade: a near-invisible shard that
+        // still writes depth punches a shard-shaped hole straight through
+        // whatever draws after it. With a resting orb barely off-centre
+        // (Contact rests at x = -1.55, so `crossing` never quite hits 0),
+        // that showed up as blue triangular holes scattered across the orb.
+        depthWrite: false,
     });
 
     // A random direction weighted toward a stronger z-component than a true
@@ -812,6 +966,97 @@ function buildHeroSphere(THREE, canvas) {
 
     scene.add(sphere);
 
+    // Light-dust: a few hundred soft specks spread through a deep volume
+    // (z -6..2) around the orb, so the blue world past the curtain reads as a
+    // space with depth rather than a flat coloured backdrop. Everything that
+    // moves them happens in the vertex shader — scroll parallax (nearer specks
+    // travel further per pixel scrolled, wrapped in a 9-unit band so they
+    // never run out), a slow idle drift, and a pointer offset scaled by depth —
+    // so the CPU only updates four uniforms a frame. A cubed size distribution
+    // keeps most specks pin-sharp and lets a rare few swell into soft, dim
+    // bokeh, which is what sells the depth of field. Additive blending means
+    // they simply vanish against the pale hero, and they're also gated on
+    // `dustPresence` so they only exist once the page has gone blue.
+    const DUST_COUNT = window.innerWidth < 1024 ? 260 : 720;
+    const dustPositions = new Float32Array(DUST_COUNT * 3);
+    const dustSeeds = new Float32Array(DUST_COUNT * 2);
+
+    for (let i = 0; i < DUST_COUNT; i += 1) {
+        dustPositions[i * 3] = (Math.random() * 2 - 1) * 7.5;
+        dustPositions[i * 3 + 1] = (Math.random() * 2 - 1) * 4.5;
+        dustPositions[i * 3 + 2] = -6 + Math.random() * 8;
+        dustSeeds[i * 2] = Math.random();
+        dustSeeds[i * 2 + 1] = Math.random();
+    }
+
+    const dustGeometry = new THREE.BufferGeometry();
+    dustGeometry.setAttribute('position', new THREE.BufferAttribute(dustPositions, 3));
+    dustGeometry.setAttribute('aSeed', new THREE.BufferAttribute(dustSeeds, 2));
+
+    const dustUniforms = {
+        uTime: uniforms.uTime,
+        uScroll: { value: 0 },
+        uPointer: { value: new THREE.Vector2() },
+        uAlpha: { value: 0 },
+        uPixelRatio: { value: renderer.getPixelRatio() },
+    };
+
+    const dust = new THREE.Points(
+        dustGeometry,
+        new THREE.ShaderMaterial({
+            uniforms: dustUniforms,
+            vertexShader: `
+                attribute vec2 aSeed;
+                uniform float uTime;
+                uniform float uScroll;
+                uniform vec2 uPointer;
+                uniform float uPixelRatio;
+                varying float vTwinkle;
+                varying float vDepth;
+                varying float vBokeh;
+
+                void main() {
+                    vec3 p = position;
+                    float depth = clamp((p.z + 6.0) / 8.0, 0.0, 1.0);
+
+                    p.y = mod(p.y + 4.5 + uScroll * (0.25 + depth * 0.95) + uTime * 0.035 * (0.4 + aSeed.y), 9.0) - 4.5;
+                    p.x += sin(uTime * 0.18 + aSeed.y * 6.2831) * 0.14;
+                    p.xy += uPointer * (0.06 + depth * 0.32);
+
+                    vec4 mv = modelViewMatrix * vec4(p, 1.0);
+                    gl_Position = projectionMatrix * mv;
+
+                    vBokeh = pow(aSeed.x, 3.0);
+                    gl_PointSize = (1.6 + vBokeh * 11.0) * uPixelRatio * (6.0 / -mv.z);
+                    vTwinkle = 0.6 + 0.4 * sin(uTime * (0.7 + aSeed.y * 1.3) + aSeed.y * 40.0);
+                    vDepth = depth;
+                }
+            `,
+            fragmentShader: `
+                uniform float uAlpha;
+                varying float vTwinkle;
+                varying float vDepth;
+                varying float vBokeh;
+
+                void main() {
+                    float d = length(gl_PointCoord - 0.5);
+                    float soft = smoothstep(0.5, 0.0, d);
+                    vec3 tint = mix(vec3(0.72, 0.87, 1.0), vec3(1.0, 0.86, 0.94), vDepth);
+                    float alpha = soft * soft * vTwinkle * (0.3 + vDepth * 0.55) * mix(1.0, 0.32, vBokeh);
+                    gl_FragColor = vec4(tint, alpha * uAlpha);
+                }
+            `,
+            transparent: true,
+            depthWrite: false,
+            blending: THREE.AdditiveBlending,
+        })
+    );
+    // Positions are rewritten in the shader, so the CPU-side bounding sphere
+    // is meaningless — never let three.js cull the whole field by it.
+    dust.frustumCulled = false;
+    dust.visible = false;
+    scene.add(dust);
+
     // About's wave intensity gets a one-time spring "bloom" the first time
     // the section scrolls into view, layered on top of the normal scroll-
     // driven fade — a brief overshoot-then-settle rather than the flat,
@@ -872,6 +1117,9 @@ function buildHeroSphere(THREE, canvas) {
     // after — the orb re-emerges on top of the now-settled blue floor,
     // exactly like the reference screenshots, rather than staying hidden.
     let heroWipeDissolve = 0;
+    // How present the blue world's floating light-dust is — 0 over the pale
+    // hero, rising with the orb's own re-emergence once the curtain settles.
+    let dustPresence = 0;
     const wipeEl = document.getElementById('scene-wipe');
 
     if (wipeEl) {
@@ -902,53 +1150,81 @@ function buildHeroSphere(THREE, canvas) {
             wipeOriginY = `${((1 - (projectedPos.y * 0.5 + 0.5)) * 100).toFixed(2)}%`;
         };
 
-        // A fixed 900px of scroll, wherever it happens to start relative to
+        // A fixed 700px of scroll, wherever it happens to start relative to
         // About — "scrolling a bit" shouldn't depend on how far down the
         // page About sits, and once covering, nothing here depends on
         // Services' or any other section's position either, since the
         // curtain never needs to react to anything again after settling.
-        ScrollTrigger.create({
+        // Was 900px with the orb's return spread across the whole second
+        // half — which meant that with About centred on screen (the moment
+        // you'd actually read it) the orb was still only ~50% re-emerged,
+        // reading as a washed-out lavender ghost. Shorter, with the return
+        // finishing by 85%, puts it fully back before About is centred.
+        const applyCurtain = (p) => {
+            // First half: grow + dissolve the orb out. Second half: hold
+            // fully covered, re-emerge the orb. opacity/clip-path/
+            // background are only ever touched by growP, and growP is
+            // permanently clamped at 1 once p passes 0.5 (scrub progress
+            // itself holds at 1 past this trigger's end too) — so the
+            // curtain's visible state, once settled, truly never changes
+            // again for the rest of the scrollable page.
+            const growP = Math.min(1, p / 0.5);
+            const reappearP = Math.max(0, Math.min(1, (p - 0.5) / 0.35));
+
+            if (growP > 0 && !originCaptured) {
+                captureWipeOrigin();
+                originCaptured = true;
+            } else if (growP <= 0) {
+                originCaptured = false;
+            }
+
+            heroWipeDissolve = Math.max(0, growP - reappearP);
+            dustPresence = reappearP;
+            // Lets the fixed UI chrome (chapter rail, caption, card edges)
+            // switch to light-on-blue styling the moment the canvas turns
+            // blue — slate-on-blue was close to invisible.
+            document.documentElement.classList.toggle('is-blue', growP >= 1);
+            wipeEl.style.zIndex = growP >= 1 ? '-1' : '50';
+            wipeEl.style.clipPath = `circle(${(growP * 80).toFixed(2)}vmax at ${wipeOriginX} ${wipeOriginY})`;
+            wipeEl.style.opacity = growP.toFixed(3);
+            wipeEl.style.background = `radial-gradient(circle at ${wipeOriginX} ${wipeOriginY}, #1557e8 0%, #168bff 60%, #27c9f2 100%)`;
+        };
+
+        // GSAP fires onUpdate synchronously once at ScrollTrigger.create()
+        // time, before fonts/layout/the hero's own intro animation have
+        // necessarily settled — that premature call can measure a small
+        // non-zero progress (observed: ~0.07) even though the real scroll
+        // position is 0, and since nothing re-fires onUpdate until the user
+        // actually scrolls, that faint leftover circle just sits there at
+        // idle forever. Forcing progress to 0 whenever the real scroll
+        // position is 0 sidesteps the quirk entirely — idle is idle,
+        // regardless of what GSAP measured before the page had settled.
+        const realProgress = (self) => (window.scrollY > 0 ? self.progress : 0);
+
+        const curtain = ScrollTrigger.create({
             trigger: '#about',
             start: 'top 95%',
-            end: '+=900',
+            end: '+=700',
             scrub: true,
             onUpdate: (self) => {
-                // GSAP fires this synchronously once at ScrollTrigger.create()
-                // time, before fonts/layout/the hero's own intro animation
-                // have necessarily settled — that premature call can measure
-                // a small non-zero progress (observed: ~0.07) even though the
-                // real scroll position is 0, and since nothing re-fires
-                // onUpdate until the user actually scrolls, that faint
-                // leftover circle just sits there at idle forever. Forcing
-                // progress to 0 whenever the real scroll position is 0
-                // sidesteps the quirk entirely rather than chasing its exact
-                // cause — idle is idle, regardless of what GSAP measured
-                // before the page had fully settled.
-                const p = window.scrollY > 0 ? self.progress : 0;
-                // First half: grow + dissolve the orb out. Second half: hold
-                // fully covered, re-emerge the orb. opacity/clip-path/
-                // background are only ever touched by growP, and growP is
-                // permanently clamped at 1 once p passes 0.5 (scrub progress
-                // itself holds at 1 past this trigger's end too) — so the
-                // curtain's visible state, once settled, truly never changes
-                // again for the rest of the scrollable page.
-                const growP = Math.min(1, p / 0.5);
-                const reappearP = Math.max(0, Math.min(1, (p - 0.5) / 0.5));
-
-                if (growP > 0 && !originCaptured) {
-                    captureWipeOrigin();
-                    originCaptured = true;
-                } else if (growP <= 0) {
-                    originCaptured = false;
+                // A global ScrollTrigger.refresh() (window resize, the
+                // fonts-ready refresh, a Services accordion toggle) scrolls
+                // the page to 0 mid-way to re-measure, updates triggers while
+                // it's there, then restores the scroll — and since progress
+                // ends where it started, onUpdate never fires again. The
+                // scrollY gate above read that transient 0 as "idle" and left
+                // the whole blue world switched off. Ignore updates during a
+                // refresh; the 'refresh' listener below re-applies the real
+                // state once scroll is back where it belongs.
+                if (ScrollTrigger.isRefreshing) {
+                    return;
                 }
 
-                heroWipeDissolve = Math.max(0, growP - reappearP);
-                wipeEl.style.zIndex = growP >= 1 ? '-1' : '50';
-                wipeEl.style.clipPath = `circle(${(growP * 80).toFixed(2)}vmax at ${wipeOriginX} ${wipeOriginY})`;
-                wipeEl.style.opacity = growP.toFixed(3);
-                wipeEl.style.background = `radial-gradient(circle at ${wipeOriginX} ${wipeOriginY}, #1557e8 0%, #168bff 60%, #27c9f2 100%)`;
+                applyCurtain(realProgress(self));
             },
         });
+
+        ScrollTrigger.addEventListener('refresh', () => applyCurtain(realProgress(curtain)));
     }
 
     const intro = { y: -3.4, scale: 0.72, rotZ: -0.5, opacity: 0 };
@@ -960,13 +1236,35 @@ function buildHeroSphere(THREE, canvas) {
     // pose used by every other section.
     const pointerTarget = { x: 0, y: 0 };
     const pointerCurrent = { x: 0, y: 0 };
+    // Raw client position too, for hit-testing the orb — pointerTarget is
+    // normalised to the whole window, but the canvas starts 5rem in from the
+    // left on desktop (it clears the sidebar rail), so a ray cast from
+    // window-normalised coordinates would land ~40px off target.
+    const pointerClient = { x: 0, y: 0, active: false };
 
     if (!window.matchMedia('(pointer: coarse)').matches) {
         window.addEventListener('mousemove', (event) => {
             pointerTarget.x = (event.clientX / window.innerWidth) * 2 - 1;
             pointerTarget.y = (event.clientY / window.innerHeight) * 2 - 1;
+            pointerClient.x = event.clientX;
+            pointerClient.y = event.clientY;
+            pointerClient.active = true;
+        });
+        document.addEventListener('mouseleave', () => {
+            pointerClient.active = false;
         });
     }
+
+    // Hovering the orb itself "excites" it — the surface swells into livelier
+    // waves and spins up, then calms when the cursor leaves. Hit-tested with a
+    // plain ray-vs-bounding-sphere check each frame (not on mousemove), so it
+    // also responds when scrolling carries the orb under a stationary cursor.
+    const orbRaycaster = new THREE.Raycaster();
+    const orbNdc = new THREE.Vector2();
+    const orbBounds = new THREE.Sphere();
+    const cursorRing = document.getElementById('cursor-ring');
+    let orbHover = 0;
+    let orbHovered = false;
     const scrollTarget = { x: 0, y: 0, scale: 1, rotZ: 0, spike: 0, bands: 0, fade: 1, gem: 0, discs: 0, beacon: 0, ...moodKeysFromHex() };
     const scrollCurrent = { x: 0, y: 0, scale: 1, rotZ: 0, spike: 0, bands: 0, fade: 1, gem: 0, discs: 0, beacon: 0, ...moodKeysFromHex() };
 
@@ -992,7 +1290,10 @@ function buildHeroSphere(THREE, canvas) {
             const rect = hero.getBoundingClientRect();
             list.push({
                 center: rect.top + docTop + rect.height / 2,
-                caption: 'A journey of clean, purposeful code',
+                // Doubles as the scroll cue while the hero is active (see
+                // .section-caption.is-cue) — the old caption just repeated
+                // the hero's own eyebrow line word for word.
+                caption: 'Scroll to explore',
                 pose: adapt({ x: 1.62, y: 0, scale: 1, rotZ: 0, spike: 0, bands: 0, fade: 1, gem: 0, discs: 0, beacon: 0, ...moodKeysFromHex(hero.dataset.sphereMood) }),
             });
         }
@@ -1040,6 +1341,7 @@ function buildHeroSphere(THREE, canvas) {
 
         if (captionEl && waypoint && waypoint.caption) {
             captionEl.textContent = waypoint.caption;
+            captionEl.classList.toggle('is-cue', index === 0);
         }
     }
 
@@ -1137,7 +1439,7 @@ function buildHeroSphere(THREE, canvas) {
         lastScrollY = currentScrollY;
 
         const idleBreath = 0.055 + Math.sin(uniforms.uTime.value * 0.6) * 0.015;
-        uniforms.uDistort.value = idleBreath + Math.min(smoothedVelocity * 0.006, 0.13);
+        uniforms.uDistort.value = idleBreath + Math.min(smoothedVelocity * 0.006, 0.13) + orbHover * 0.085;
 
         const maxScroll = Math.max(1, document.documentElement.scrollHeight - window.innerHeight);
         uniforms.uProgress.value = Math.min(1, currentScrollY / maxScroll);
@@ -1297,7 +1599,7 @@ function buildHeroSphere(THREE, canvas) {
         sphere.rotation.z = scrollCurrent.rotZ + intro.rotZ + bank;
         sphere.rotation.x = -pointerCurrent.y * 0.14 * heroPresence + pitch;
         sphere.rotation.y = pointerCurrent.x * 0.14 * heroPresence + tumble;
-        sphereMesh.rotation.y += delta * 0.18;
+        sphereMesh.rotation.y += delta * 0.18 * (1 + orbHover * 2.2);
         // Deliberately on sphereMesh, not the parent "sphere" group — the
         // group also carries the gem/discs/bands/rings, and a non-uniform
         // group scale would stretch the gem's hard facets and the discs'
@@ -1312,7 +1614,13 @@ function buildHeroSphere(THREE, canvas) {
         // — orb, gem, or discs — multiplicatively on top of their existing
         // opacity, so the shards read as having taken that shape's place
         // rather than sitting on top of it as an overlay.
-        const explodeAmount = crossing;
+        //
+        // A dead zone at the low end: resting poses sit at |x| 1.55-1.62, not
+        // exactly 1.6, so raw `crossing` idles at up to ~0.03 at rest — enough
+        // to leave a faint, permanently half-born shard cloud around the
+        // Contact orb. smoothstep pins true rest to exactly 0 (and, as a
+        // bonus, eases the burst in and out instead of starting linearly).
+        const explodeAmount = THREE.MathUtils.smoothstep(crossing, 0.08, 0.9);
         uniforms.uGlobalAlpha.value *= 1 - explodeAmount;
         gemCoreMaterial.opacity *= 1 - explodeAmount;
         gemRings.forEach((r) => {
@@ -1330,6 +1638,35 @@ function buildHeroSphere(THREE, canvas) {
             updateFragmentBatch(shardMesh, shardData, explodeAmount);
         }
 
+        // Orb hover: only where the orb is genuinely the thing under the
+        // cursor — desktop layout (in compact view it sits behind the copy,
+        // so "hovering" it would just mean reading the text over it), and
+        // only while it's solidly visible (not mid-burst or mid-swap).
+        let hovering = false;
+
+        if (pointerClient.active && !compactView && uniforms.uGlobalAlpha.value > 0.6) {
+            orbNdc.set(
+                ((pointerClient.x - canvasRect.left) / canvasRect.width) * 2 - 1,
+                -((pointerClient.y - canvasRect.top) / canvasRect.height) * 2 + 1
+            );
+            orbRaycaster.setFromCamera(orbNdc, camera);
+            sphere.getWorldPosition(orbBounds.center);
+            orbBounds.radius = 1.02 * sphere.scale.x;
+            hovering = orbRaycaster.ray.intersectsSphere(orbBounds);
+        }
+
+        orbHover += ((hovering ? 1 : 0) - orbHover) * (1 - Math.exp(-raw * 5));
+
+        if (hovering !== orbHovered) {
+            orbHovered = hovering;
+            cursorRing?.classList.toggle('is-orb', hovering);
+        }
+
+        dust.visible = dustPresence > 0.01;
+        dustUniforms.uAlpha.value = dustPresence;
+        dustUniforms.uScroll.value = currentScrollY * 0.0024;
+        dustUniforms.uPointer.value.set(pointerCurrent.x, -pointerCurrent.y);
+
         canvas.style.opacity = (scrollCurrent.fade * (compactView ? 0.4 : 1) * intro.opacity).toFixed(3);
 
         renderer.render(scene, camera);
@@ -1346,11 +1683,16 @@ function buildHeroSphere(THREE, canvas) {
     measureWaypoints();
     tick();
 
-    gsap.to(intro, { y: 0, scale: 1, rotZ: 0, duration: 1.5, ease: 'power3.out', delay: 0.2 });
-    // Fades in on its own, faster timeline than the rise — masks the one
-    // blank beat between page paint and the first WebGL frame actually
-    // landing, rather than popping in abruptly once it does.
-    gsap.to(intro, { opacity: 1, duration: 0.7, ease: 'power2.out', delay: 0.1 });
+    // Waits for the loader to lift (same signal as the hero copy's staged
+    // rise), so the orb's entrance is something you actually see — it used
+    // to start on module load and could finish entirely behind the loader.
+    pageReady.then(() => {
+        gsap.to(intro, { y: 0, scale: 1, rotZ: 0, duration: 1.6, ease: 'expo.out', delay: 0.15 });
+        // Fades in on its own, faster timeline than the rise — masks the one
+        // blank beat between page paint and the first WebGL frame actually
+        // landing, rather than popping in abruptly once it does.
+        gsap.to(intro, { opacity: 1, duration: 0.7, ease: 'power2.out', delay: 0.1 });
+    });
 
     window.addEventListener('resize', () => {
         resize();
@@ -1612,6 +1954,226 @@ function initNav() {
     });
 }
 
+// Sidebar rail: one indicator bar that slides to whichever icon matches the
+// section crossing the middle of the viewport (homepage), or the current
+// route's link (Work/Blog pages). IntersectionObserver rather than the
+// sphere's own waypoint loop, so it works under reduced motion too, where
+// the sphere never runs.
+function initSectionSpy() {
+    const nav = document.querySelector('[data-sidebar-nav]');
+    const indicator = nav?.querySelector('[data-sidebar-indicator]');
+
+    if (!nav || !indicator) {
+        return;
+    }
+
+    const links = Array.from(nav.querySelectorAll('[data-spy]'));
+    const routeLink = nav.querySelector('[aria-current="page"]');
+
+    const place = (link) => {
+        if (!link) {
+            indicator.style.opacity = '0';
+
+            return;
+        }
+
+        const y = link.offsetTop + link.offsetHeight / 2 - indicator.offsetHeight / 2;
+        indicator.style.transform = `translateY(${y}px)`;
+        indicator.style.opacity = '1';
+    };
+
+    place(routeLink);
+
+    const sections = links.map((link) => document.getElementById(link.dataset.spy)).filter(Boolean);
+
+    if (!sections.length) {
+        return;
+    }
+
+    let active = null;
+
+    const observer = new IntersectionObserver(
+        (entries) => {
+            entries.forEach((entry) => {
+                if (entry.isIntersecting) {
+                    active = entry.target.id;
+                } else if (active === entry.target.id) {
+                    active = null;
+                }
+            });
+
+            links.forEach((link) => link.toggleAttribute('data-spy-active', link.dataset.spy === active));
+            place(links.find((link) => link.dataset.spy === active) || routeLink);
+        },
+        // A thin band across the middle of the viewport: whichever section
+        // is crossing it is "the one being read".
+        { rootMargin: '-48% 0px -48% 0px' }
+    );
+
+    sections.forEach((section) => observer.observe(section));
+}
+
+// Velocity-reactive marquee: drifts on its own, then surges — in whichever
+// direction you're scrolling — while the page is moving, easing back to its
+// idle drift when you stop. Each [data-marquee] track holds two identical
+// halves, so wrapping its offset at 50% loops seamlessly. Only ticks while
+// on screen.
+function initMarquees() {
+    const tracks = document.querySelectorAll('[data-marquee]');
+
+    if (!tracks.length || prefersReducedMotion) {
+        return;
+    }
+
+    tracks.forEach((track) => {
+        const base = parseFloat(track.dataset.marqueeSpeed || '1.6');
+        let offset = 0;
+        let boost = 0;
+        let direction = 1;
+        let onScreen = false;
+
+        new IntersectionObserver(([entry]) => {
+            onScreen = entry.isIntersecting;
+        }).observe(track);
+
+        lenis?.on('scroll', ({ velocity }) => {
+            boost = Math.max(boost, Math.min(Math.abs(velocity) * 0.5, 12));
+
+            if (Math.abs(velocity) > 0.5) {
+                direction = velocity > 0 ? 1 : -1;
+            }
+        });
+
+        gsap.ticker.add((time, deltaMs) => {
+            if (!onScreen) {
+                return;
+            }
+
+            const dt = Math.min(deltaMs, 100) / 1000;
+            boost *= Math.exp(-dt * 2.4);
+            offset = (offset + (base + boost) * direction * dt) % 50;
+
+            if (offset < 0) {
+                offset += 50;
+            }
+
+            track.style.transform = `translate3d(${-offset}%, 0, 0)`;
+        });
+    });
+}
+
+// "How we'll work" steps: a connector line that draws itself as you scroll
+// through the list, each step's marker lighting up as the line reaches it.
+// The line is the <ol>'s own ::before/::after (a <span> isn't valid as a
+// direct child of <ol>), so this animates the --process-progress custom
+// property the ::after's scaleY reads, rather than an element.
+function initProcessTimeline() {
+    const list = document.querySelector('[data-process]');
+
+    if (!list) {
+        return;
+    }
+
+    const steps = list.querySelectorAll('[data-process-step]');
+
+    if (prefersReducedMotion) {
+        steps.forEach((step) => step.classList.add('is-active'));
+        list.style.setProperty('--process-progress', '1');
+
+        return;
+    }
+
+    gsap.fromTo(
+        list,
+        { '--process-progress': 0 },
+        {
+            '--process-progress': 1,
+            ease: 'none',
+            scrollTrigger: { trigger: list, start: 'top 78%', end: 'bottom 62%', scrub: 0.6 },
+        }
+    );
+
+    steps.forEach((step) => {
+        ScrollTrigger.create({
+            trigger: step,
+            start: 'top 74%',
+            onEnter: () => step.classList.add('is-active'),
+            onLeaveBack: () => step.classList.remove('is-active'),
+        });
+    });
+}
+
+// Live local time in the footer — a small, honest "real person, real
+// timezone" signal for international clients working out reply windows.
+function initLocalTime() {
+    const targets = document.querySelectorAll('[data-local-time]');
+
+    if (!targets.length) {
+        return;
+    }
+
+    const format = new Intl.DateTimeFormat('en-GB', {
+        hour: '2-digit',
+        minute: '2-digit',
+        hour12: false,
+        timeZone: 'Asia/Kolkata',
+    });
+
+    const render = () => {
+        const now = format.format(new Date());
+        targets.forEach((el) => {
+            el.textContent = now;
+        });
+    };
+
+    render();
+    window.setInterval(render, 15000);
+}
+
+function initBackToTop() {
+    document.querySelectorAll('[data-back-to-top]').forEach((button) => {
+        button.addEventListener('click', () => {
+            if (lenis) {
+                lenis.scrollTo(0, { duration: 2.2 });
+            } else {
+                window.scrollTo({ top: 0, behavior: prefersReducedMotion ? 'auto' : 'smooth' });
+            }
+        });
+    });
+}
+
+// Glass cards catch a soft light that follows the cursor across them (the
+// gradient itself lives in .stage-card's background in app.css — this only
+// feeds it the pointer position).
+function initCardSpotlight() {
+    if (window.matchMedia('(pointer: coarse)').matches) {
+        return;
+    }
+
+    document.querySelectorAll('.stage-card').forEach((card) => {
+        card.addEventListener('pointermove', (event) => {
+            const rect = card.getBoundingClientRect();
+            card.style.setProperty('--spot-x', `${event.clientX - rect.left}px`);
+            card.style.setProperty('--spot-y', `${event.clientY - rect.top}px`);
+        });
+    });
+}
+
+// Opening/closing an accordion item changes the page height below it, which
+// every ScrollTrigger start/end further down the page was measured against —
+// re-measure once the height transition has finished.
+function initAccordions() {
+    const items = document.querySelectorAll('details[data-accordion]');
+    let timer;
+
+    items.forEach((item) => {
+        item.addEventListener('toggle', () => {
+            window.clearTimeout(timer);
+            timer = window.setTimeout(() => ScrollTrigger.refresh(), 650);
+        });
+    });
+}
+
 document.addEventListener('DOMContentLoaded', () => {
     initPageLoader();
     initSmoothScroll();
@@ -1626,6 +2188,13 @@ document.addEventListener('DOMContentLoaded', () => {
     initMagneticButtons();
     initFormSubmitGuard();
     initFocusFirstError();
+    initSectionSpy();
+    initMarquees();
+    initProcessTimeline();
+    initLocalTime();
+    initBackToTop();
+    initCardSpotlight();
+    initAccordions();
 
     requestAnimationFrame(() => ScrollTrigger.refresh());
 

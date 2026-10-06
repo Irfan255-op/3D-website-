@@ -36,6 +36,15 @@
             'tags' => ['TailwindCSS', 'Vite', 'JavaScript'],
         ],
     ];
+
+    // "How we'll work" — the Contact section's what-happens-next. Process
+    // description, not a claim about past results; edit freely.
+    $process = [
+        ['title' => 'Discover', 'description' => 'A short call to understand your goals, your users and your constraints.'],
+        ['title' => 'Plan', 'description' => 'Clear scope, architecture and a realistic timeline before any code is written.'],
+        ['title' => 'Build', 'description' => 'Iterative delivery with regular check-ins, so nothing arrives as a surprise.'],
+        ['title' => 'Launch', 'description' => 'Deploy, monitor and keep improving once real users arrive.'],
+    ];
 @endphp
 
 @section('content')
@@ -43,6 +52,9 @@
          via the shared layout (kept as true siblings for correct z-index
          stacking — see layouts/app.blade.php). --}}
     <nav class="chapter-rail" aria-label="Section progress">
+        {{-- Overall page progress: a hairline beside the numbers that fills
+             top-to-bottom off --scroll-progress (set every frame in app.js). --}}
+        <span class="chapter-rail__track" aria-hidden="true"></span>
         <a href="#top" data-rail="0">00</a>
         <a href="#about" data-rail="1">01</a>
         <a href="#services" data-rail="2">02</a>
@@ -51,15 +63,15 @@
         <a href="#start" data-rail="5">05</a>
     </nav>
 
-    <p class="section-caption" id="section-caption">A journey of clean, purposeful code</p>
+    <p class="section-caption is-cue" id="section-caption">Scroll to explore</p>
 
     <button type="button" class="motion-toggle" id="motion-toggle" aria-pressed="false">&#9208; Pause motion</button>
 
     <x-section bleed id="top" data-sphere-hero data-sphere-mood="#1557e8" class="relative min-h-[88vh] sm:min-h-[92vh]">
         <div class="relative z-10 flex min-h-[88vh] items-center px-6 py-24 sm:min-h-[92vh] sm:px-8 lg:px-16">
-            <div class="w-full max-w-2xl text-center lg:text-left">
+            <div data-hero-content class="w-full max-w-2xl text-center lg:text-left">
                 <p data-animate class="font-mono text-sm font-medium uppercase tracking-widest text-slate-500">A journey of clean, purposeful code</p>
-                <h1 data-animate data-lens-text class="relative mt-4 font-serif text-4xl font-medium leading-[1.05] tracking-tight text-slate-900 sm:text-6xl">
+                <h1 data-animate data-lens-text class="relative mt-4 font-serif text-[2.75rem] font-medium leading-[1.02] tracking-tight text-slate-900 sm:text-6xl xl:text-7xl">
                     <span>Minimal design, <em class="italic">maximum</em> impact</span>
                     <span aria-hidden="true" data-lens-layer class="pointer-events-none absolute inset-0 mix-blend-multiply text-red-500" style="clip-path: circle(0px at 0px 0px); transform: translateX(-3px);">Minimal design, <em class="italic">maximum</em> impact</span>
                     <span aria-hidden="true" data-lens-layer class="pointer-events-none absolute inset-0 mix-blend-multiply text-brand-500" style="clip-path: circle(0px at 0px 0px); transform: translateX(3px);">Minimal design, <em class="italic">maximum</em> impact</span>
@@ -69,7 +81,7 @@
                 </p>
 
                 <div data-animate class="mt-6 flex flex-wrap items-center justify-center gap-x-3 gap-y-2 font-mono text-xs uppercase tracking-wide text-slate-500 lg:justify-start">
-                    <span>Available for freelance work</span>
+                    <span class="inline-flex items-center gap-2 text-slate-700"><span class="status-dot" aria-hidden="true"></span>Available for freelance work</span>
                     <span aria-hidden="true">&middot;</span>
                     <span>Based in Mumbra, Maharashtra</span>
                     @if ($projectCount > 0)
@@ -136,17 +148,28 @@
             <p class="font-mono text-xs uppercase tracking-[0.14em] text-brand-600">02 &mdash; What I offer</p>
             <h2 data-scramble class="mt-3 font-serif text-4xl font-medium text-slate-900 sm:text-5xl">Services</h2>
 
-            <div class="mt-6 grid gap-5">
+            {{-- An exclusive accordion (shared `name`: opening one closes the
+                 others) built on native <details>, so it's keyboard- and
+                 screen-reader-correct for free. The open/close height
+                 animation is pure CSS (::details-content + interpolate-size,
+                 in app.css); browsers without it just toggle instantly. --}}
+            <div class="mt-6 border-b border-slate-900/10" data-stagger>
                 @foreach ($services as $service)
-                    <div class="border-t border-slate-200 pt-4">
-                        <h3 class="font-semibold text-slate-900">{{ $service['title'] }}</h3>
-                        <p class="mt-1 text-sm leading-relaxed text-slate-600">{!! $service['description'] !!}</p>
-                        <ul class="mt-3 flex flex-wrap gap-2">
-                            @foreach ($service['tags'] as $tag)
-                                <li class="tag-pill">{{ $tag }}</li>
-                            @endforeach
-                        </ul>
-                    </div>
+                    <details class="service-item" name="services" data-accordion @if ($loop->first) open @endif>
+                        <summary class="service-summary">
+                            <span class="service-index" aria-hidden="true">{{ sprintf('%02d', $loop->iteration) }}</span>
+                            <h3 class="flex-1 font-semibold text-slate-900">{{ $service['title'] }}</h3>
+                            <span class="service-toggle" aria-hidden="true"></span>
+                        </summary>
+                        <div class="service-body">
+                            <p class="text-sm leading-relaxed text-slate-600">{!! $service['description'] !!}</p>
+                            <ul class="mt-3 flex flex-wrap gap-2">
+                                @foreach ($service['tags'] as $tag)
+                                    <li class="tag-pill">{{ $tag }}</li>
+                                @endforeach
+                            </ul>
+                        </div>
+                    </details>
                 @endforeach
             </div>
         </div>
@@ -170,7 +193,7 @@
             <p class="font-mono text-xs uppercase tracking-[0.14em] text-brand-600">03 &mdash; Core skills</p>
             <h2 data-scramble class="mt-3 font-serif text-4xl font-medium text-slate-900 sm:text-5xl">Tools I build with</h2>
 
-            <ul class="mt-6 flex flex-wrap gap-2">
+            <ul class="mt-6 flex flex-wrap gap-2" data-stagger>
                 @foreach ($skills as $skill)
                     <li
                         class="tag-pill cursor-default outline-none focus-visible:ring-2 focus-visible:ring-brand-400"
@@ -206,16 +229,19 @@
             @if ($projects->isEmpty())
                 <p class="mt-6 text-slate-500">Case studies are coming soon.</p>
             @else
-                <div class="mt-6 grid gap-5">
+                <div class="mt-6 divide-y divide-slate-900/10 border-y border-slate-900/10" data-stagger>
                     @foreach ($projects as $project)
-                        <a href="{{ route('work.show', $project) }}" data-cursor-text="View" class="group block border-t border-slate-200 pt-4">
-                            <div class="flex items-baseline gap-3">
-                                <span class="font-mono text-xs text-slate-300">{{ sprintf('%02d', $loop->iteration) }}</span>
-                                <h3 class="font-serif text-lg font-medium text-slate-900 transition group-hover:text-brand-600">
+                        <a href="{{ route('work.show', $project) }}" data-cursor-text="View" class="work-row group">
+                            <span class="work-row__index" aria-hidden="true">{{ sprintf('%02d', $loop->iteration) }}</span>
+                            <div class="min-w-0 flex-1">
+                                <h3 class="font-serif text-lg font-medium text-slate-900 transition-colors duration-300 group-hover:text-brand-700">
                                     {{ $project->title }}
                                 </h3>
+                                <p class="mt-1 truncate font-mono text-[11px] uppercase tracking-wide text-slate-500" title="{{ $project->tech_stack }}">{{ $project->tech_stack }}</p>
                             </div>
-                            <p class="mt-1 font-mono text-[11px] uppercase tracking-wide text-slate-400">{{ $project->tech_stack }}</p>
+                            <svg aria-hidden="true" class="work-row__arrow" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.75">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M4.5 19.5l15-15m0 0H8.25m11.25 0v11.25" />
+                            </svg>
                         </a>
                     @endforeach
                 </div>
@@ -247,8 +273,27 @@
             <p class="mt-5 text-slate-600">
                 Tell me what you're building and I'll come back with next steps &mdash; usually within a day.
             </p>
-            <a href="{{ route('contact') }}" data-magnetic class="mt-6 inline-flex rounded-full bg-brand-600 px-7 py-3 text-sm font-semibold text-white transition hover:bg-brand-700">
+
+            <p class="mt-7 font-mono text-[11px] uppercase tracking-[0.14em] text-slate-500">How we'll work</p>
+            {{-- The connector line (::before track / ::after fill) draws
+                 itself as you scroll through the list, driven by a
+                 --process-progress custom property from app.js; each step's
+                 marker lights up as the line reaches it. --}}
+            <ol class="process" data-process data-stagger>
+                @foreach ($process as $step)
+                    <li class="process__step" data-process-step>
+                        <span class="process__dot" aria-hidden="true">{{ $loop->iteration }}</span>
+                        <h3 class="font-semibold text-slate-900">{{ $step['title'] }}</h3>
+                        <p class="mt-0.5 text-sm leading-relaxed text-slate-600">{{ $step['description'] }}</p>
+                    </li>
+                @endforeach
+            </ol>
+
+            <a href="{{ route('contact') }}" data-magnetic class="mt-8 inline-flex items-center gap-2 rounded-full bg-brand-600 px-7 py-3 text-sm font-semibold text-white transition hover:bg-brand-700">
                 Start a project
+                <svg aria-hidden="true" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M17 8l4 4m0 0l-4 4m4-4H3" />
+                </svg>
             </a>
         </div>
     </x-section>

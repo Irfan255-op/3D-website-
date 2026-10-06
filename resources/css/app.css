@@ -303,13 +303,48 @@
     padding: clamp(72px, 10vh, 116px) clamp(16px, 6vw, 64px);
 }
 
+/* Registered so it can transition — the spotlight fades in/out by animating
+   this number, which the gradient's alpha reads. */
+@property --spot-o {
+    syntax: '<number>';
+    inherits: false;
+    initial-value: 0;
+}
+
+/* Glass panel: brighter at the top edge than the bottom (light falling from
+   above), a 1px inner highlight along the top edge, and a long soft shadow
+   so the card sits *above* the blue canvas instead of being printed on it.
+   The first background layer is a cursor-following spotlight (position fed
+   by initCardSpotlight() in app.js), faded in on hover via --spot-o. */
 .stage-card {
+    position: relative;
     max-width: 34rem;
     border-radius: 1.5rem;
-    border: 1px solid color-mix(in oklab, var(--color-slate-200) 85%, transparent);
-    background: color-mix(in oklab, white 74%, transparent);
-    backdrop-filter: blur(16px);
+    border: 1px solid color-mix(in oklab, var(--color-slate-200) 80%, transparent);
+    background:
+        radial-gradient(
+            520px circle at var(--spot-x, 50%) var(--spot-y, -30%),
+            rgb(255 255 255 / calc(var(--spot-o) * 0.6)),
+            transparent 55%
+        ),
+        linear-gradient(168deg, rgb(255 255 255 / 0.9) 0%, rgb(255 255 255 / 0.72) 100%);
+    box-shadow:
+        inset 0 1px 0 rgb(255 255 255 / 0.85),
+        0 1px 2px rgb(15 23 42 / 0.05),
+        0 28px 64px -30px rgb(12 34 96 / 0.42);
+    backdrop-filter: blur(18px) saturate(1.35);
     padding: clamp(1.75rem, 4vw, 2.75rem);
+    transition: --spot-o 0.45s ease;
+}
+
+.stage-card:hover {
+    --spot-o: 1;
+}
+
+/* On the blue canvas a slate hairline reads as a grey smudge; a white edge
+   reads as the glass catching light. */
+.is-blue .stage-card {
+    border-color: rgb(255 255 255 / 0.6);
 }
 
 .stage-card[data-side='right'] {
@@ -405,31 +440,86 @@
 
 .chapter-rail {
     position: fixed;
-    right: clamp(10px, 1.5vw, 24px);
+    right: clamp(8px, 1vw, 16px);
     top: 50%;
     transform: translateY(-50%);
     z-index: 30;
     display: flex;
     flex-direction: column;
+    align-items: flex-end;
     gap: 13px;
+    padding-right: 12px;
     font-family: var(--font-mono);
     font-size: 10px;
     letter-spacing: 0.12em;
 }
 
+/* Whole-page progress: a hairline down the rail's right edge, filled from
+   the top by --scroll-progress (written every frame by app.js). */
+.chapter-rail__track {
+    position: absolute;
+    top: 2px;
+    right: 0;
+    bottom: 2px;
+    width: 1px;
+    overflow: hidden;
+    background: color-mix(in oklab, var(--color-slate-400) 35%, transparent);
+    transition: background-color 0.4s ease;
+}
+
+.chapter-rail__track::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: var(--color-brand-600);
+    transform: scaleY(var(--scroll-progress, 0));
+    transform-origin: top;
+    transition: background-color 0.4s ease;
+}
+
 .chapter-rail a {
+    position: relative;
     color: var(--color-slate-400);
     opacity: 0.6;
     text-decoration: none;
     transition:
         opacity 0.25s ease,
-        color 0.25s ease;
+        color 0.4s ease;
 }
 
 .chapter-rail a[aria-current='true'] {
     opacity: 1;
     color: var(--color-brand-600);
     font-weight: 500;
+}
+
+/* A bead on the track beside whichever chapter is current. */
+.chapter-rail a[aria-current='true']::after {
+    content: '';
+    position: absolute;
+    top: 50%;
+    right: -14.5px;
+    width: 6px;
+    height: 6px;
+    border-radius: 9999px;
+    background: currentColor;
+    transform: translateY(-50%);
+}
+
+.is-blue .chapter-rail a {
+    color: rgb(255 255 255 / 0.75);
+}
+
+.is-blue .chapter-rail a[aria-current='true'] {
+    color: white;
+}
+
+.is-blue .chapter-rail__track {
+    background: rgb(255 255 255 / 0.22);
+}
+
+.is-blue .chapter-rail__track::after {
+    background: white;
 }
 
 .section-caption {
@@ -445,6 +535,45 @@
     text-transform: uppercase;
     color: var(--color-slate-400);
     pointer-events: none;
+    transition: color 0.4s ease;
+}
+
+.is-blue .section-caption {
+    color: rgb(255 255 255 / 0.75);
+}
+
+/* While the hero is active the caption doubles as the scroll cue: a short
+   line that keeps drawing itself downward above the words. The text sits
+   at a fixed bottom offset, so the line grows the box upward, not the text
+   down. */
+.section-caption.is-cue::before {
+    content: '';
+    display: block;
+    width: 1px;
+    height: 34px;
+    margin: 0 auto 12px;
+    background: linear-gradient(to bottom, transparent, currentColor);
+    transform-origin: top;
+    animation: cue-drop 2.4s cubic-bezier(0.65, 0, 0.35, 1) infinite;
+}
+
+@keyframes cue-drop {
+    0% {
+        transform: scaleY(0);
+        transform-origin: top;
+    }
+    45% {
+        transform: scaleY(1);
+        transform-origin: top;
+    }
+    55% {
+        transform: scaleY(1);
+        transform-origin: bottom;
+    }
+    100% {
+        transform: scaleY(0);
+        transform-origin: bottom;
+    }
 }
 
 .motion-toggle {
@@ -507,17 +636,340 @@
     }
 }
 
-@keyframes marquee {
-    from {
-        transform: translateX(0);
+/* --- Components ------------------------------------------------------ */
+
+/* "Available" status: a green dot with a slow sonar ping. */
+.status-dot {
+    position: relative;
+    display: inline-block;
+    width: 8px;
+    height: 8px;
+    flex-shrink: 0;
+    border-radius: 9999px;
+    background: #22c55e;
+    animation: status-ping 2.2s ease-out infinite;
+}
+
+@keyframes status-ping {
+    0% {
+        box-shadow: 0 0 0 0 rgb(34 197 94 / 0.55);
     }
-    to {
-        transform: translateX(-50%);
+    70%,
+    100% {
+        box-shadow: 0 0 0 8px rgb(34 197 94 / 0);
     }
 }
 
-.animate-marquee {
-    animation: marquee 28s linear infinite;
+/* Velocity marquee (footer). The track's offset is written by
+   initMarquees() in app.js; -50% of the track = exactly one half. */
+.marquee {
+    overflow: hidden;
+}
+
+.marquee__track {
+    display: flex;
+    width: max-content;
+    will-change: transform;
+}
+
+.marquee__half {
+    display: flex;
+    flex-shrink: 0;
+}
+
+.marquee__item {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.32em;
+    padding-right: 0.42em;
+    white-space: nowrap;
+    font-family: var(--font-serif);
+    font-size: clamp(2.75rem, 8vw, 7.5rem);
+    line-height: 1.05;
+    letter-spacing: -0.02em;
+}
+
+.marquee__outline {
+    font-style: italic;
+    color: transparent;
+    -webkit-text-stroke: 1px rgb(255 255 255 / 0.55);
+    transition: color 0.5s ease;
+}
+
+.footer-marquee:hover .marquee__outline,
+.footer-marquee:focus-visible .marquee__outline {
+    color: white;
+}
+
+.marquee__star {
+    font-size: 0.42em;
+    color: var(--color-brand-cyan);
+}
+
+/* Services accordion (native <details>). interpolate-size lets block-size
+   transition to/from `auto`; ::details-content is the element that
+   actually collapses. Browsers without either simply toggle instantly. */
+.service-item {
+    interpolate-size: allow-keywords;
+    border-top: 1px solid color-mix(in oklab, var(--color-slate-900) 10%, transparent);
+}
+
+.service-summary {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    padding: 1.05rem 0;
+    cursor: pointer;
+    list-style: none;
+}
+
+.service-summary::-webkit-details-marker {
+    display: none;
+}
+
+.service-index {
+    width: 1.5rem;
+    flex-shrink: 0;
+    font-family: var(--font-mono);
+    font-size: 0.75rem;
+    color: color-mix(in oklab, var(--color-brand-600) 70%, transparent);
+}
+
+.service-toggle {
+    position: relative;
+    width: 1.75rem;
+    height: 1.75rem;
+    flex-shrink: 0;
+    border-radius: 9999px;
+    border: 1px solid var(--color-brand-200);
+    transition:
+        background-color 0.3s ease,
+        border-color 0.3s ease,
+        transform 0.45s cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+.service-toggle::before,
+.service-toggle::after {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 10px;
+    height: 1.5px;
+    border-radius: 1px;
+    background: var(--color-brand-600);
+    transform: translate(-50%, -50%);
+    transition:
+        transform 0.45s cubic-bezier(0.2, 0.8, 0.2, 1),
+        background-color 0.3s ease;
+}
+
+.service-toggle::after {
+    transform: translate(-50%, -50%) rotate(90deg);
+}
+
+.service-summary:hover .service-toggle {
+    border-color: var(--color-brand-600);
+}
+
+.service-item[open] .service-toggle {
+    background: var(--color-brand-600);
+    border-color: var(--color-brand-600);
+    transform: rotate(180deg);
+}
+
+.service-item[open] .service-toggle::before,
+.service-item[open] .service-toggle::after {
+    background: white;
+}
+
+/* Plus collapses to a minus. */
+.service-item[open] .service-toggle::after {
+    transform: translate(-50%, -50%) rotate(0deg);
+}
+
+.service-body {
+    padding: 0 0 1.25rem 2.5rem;
+}
+
+.service-item::details-content {
+    block-size: 0;
+    overflow: clip;
+    opacity: 0;
+    transition:
+        block-size 0.55s cubic-bezier(0.2, 0.8, 0.2, 1),
+        opacity 0.4s ease,
+        content-visibility 0.55s allow-discrete;
+}
+
+.service-item[open]::details-content {
+    block-size: auto;
+    opacity: 1;
+}
+
+/* Selected-work rows: a tinted wash sweeps in from the left on hover and an
+   arrow slides in from the corner. The wash bleeds a little past the row
+   horizontally (inset 0 -0.75rem) so the text doesn't touch its edge, while
+   the row itself — and the divider lines between rows — stay aligned with
+   the card's text column. */
+.work-row {
+    position: relative;
+    isolation: isolate;
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    padding: 1rem 0;
+}
+
+.work-row::before {
+    content: '';
+    position: absolute;
+    inset: 0.3rem -0.75rem;
+    z-index: -1;
+    border-radius: 0.9rem;
+    background: linear-gradient(90deg, rgb(21 87 232 / 0.1), rgb(39 201 242 / 0.06));
+    transform: scaleX(0);
+    transform-origin: left;
+    transition: transform 0.55s cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+.work-row:hover::before,
+.work-row:focus-visible::before {
+    transform: scaleX(1);
+}
+
+.work-row__index {
+    width: 1.5rem;
+    flex-shrink: 0;
+    font-family: var(--font-mono);
+    font-size: 0.75rem;
+    color: color-mix(in oklab, var(--color-brand-600) 70%, transparent);
+}
+
+.work-row__arrow {
+    width: 1.1rem;
+    height: 1.1rem;
+    flex-shrink: 0;
+    color: var(--color-brand-600);
+    opacity: 0;
+    transform: translate(-8px, 8px);
+    transition:
+        opacity 0.3s ease,
+        transform 0.45s cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+.work-row:hover .work-row__arrow,
+.work-row:focus-visible .work-row__arrow {
+    opacity: 1;
+    transform: none;
+}
+
+/* "How we'll work" timeline. The track is the list's ::before, the fill
+   its ::after, scaled by --process-progress (scrubbed from app.js; set
+   straight to 1 under reduced motion). */
+.process {
+    position: relative;
+    display: grid;
+    gap: 1.15rem;
+    margin-top: 1rem;
+    padding-left: 2.4rem;
+    list-style: none;
+}
+
+.process::before,
+.process::after {
+    content: '';
+    position: absolute;
+    top: 0.75rem;
+    bottom: 0.75rem;
+    left: 0.6875rem;
+    width: 2px;
+    border-radius: 2px;
+}
+
+.process::before {
+    background: color-mix(in oklab, var(--color-brand-600) 14%, transparent);
+}
+
+.process::after {
+    background: linear-gradient(to bottom, var(--color-brand-600), var(--color-brand-cyan));
+    transform: scaleY(var(--process-progress, 0));
+    transform-origin: top;
+}
+
+.process__step {
+    position: relative;
+}
+
+.process__dot {
+    position: absolute;
+    top: 0.05rem;
+    left: -2.4rem;
+    z-index: 1;
+    display: grid;
+    place-items: center;
+    width: 1.5rem;
+    height: 1.5rem;
+    border-radius: 9999px;
+    border: 1px solid var(--color-brand-200);
+    background: white;
+    font-family: var(--font-mono);
+    font-size: 0.6875rem;
+    color: var(--color-brand-600);
+    transition:
+        background-color 0.4s ease,
+        border-color 0.4s ease,
+        color 0.4s ease,
+        box-shadow 0.4s ease;
+}
+
+.process__step.is-active .process__dot {
+    background: var(--color-brand-600);
+    border-color: var(--color-brand-600);
+    color: white;
+    box-shadow: 0 0 0 5px color-mix(in oklab, var(--color-brand-600) 14%, transparent);
+}
+
+/* Sidebar rail's sliding active marker (positioned by initSectionSpy()).
+   The nav column is centred inside the 5rem rail, 18px in from its left
+   edge — hence -18px to sit flush against the rail's edge. */
+.sidebar-indicator {
+    position: absolute;
+    top: 0;
+    left: -18px;
+    width: 3px;
+    height: 22px;
+    border-radius: 0 4px 4px 0;
+    background: linear-gradient(to bottom, var(--color-brand-600), var(--color-brand-cyan));
+    opacity: 0;
+    pointer-events: none;
+    transition:
+        transform 0.55s cubic-bezier(0.2, 0.8, 0.2, 1),
+        opacity 0.3s ease;
+}
+
+[data-spy-active] {
+    color: var(--color-brand-600);
+    background: color-mix(in oklab, var(--color-brand-50) 70%, transparent);
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .status-dot,
+    .section-caption.is-cue::before {
+        animation: none;
+    }
+
+    .service-item::details-content,
+    .service-toggle,
+    .service-toggle::before,
+    .service-toggle::after,
+    .work-row::before,
+    .work-row__arrow,
+    .process__dot,
+    .sidebar-indicator,
+    .marquee__outline {
+        transition: none;
+    }
 }
 
 /* Cross-document view transitions: a plain cross-fade between pages so
@@ -623,6 +1075,14 @@ select:focus-visible,
     transform: scale(1.15);
     background: color-mix(in oklab, white 14%, transparent);
     border-color: color-mix(in oklab, var(--color-brand-600) 55%, transparent);
+}
+
+/* Over the hero orb (hit-tested in app.js's render loop): the ring swells
+   and brightens, echoing the orb's own excited ripple. */
+#cursor-ring.is-orb #cursor-ring-inner {
+    transform: scale(1.45);
+    background: color-mix(in oklab, white 18%, transparent);
+    border-color: color-mix(in oklab, #f29bc4 70%, transparent);
 }
 
 #cursor-ring.is-labelled #cursor-ring-inner {

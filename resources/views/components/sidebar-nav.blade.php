@@ -18,10 +18,16 @@
         <img src="{{ asset('images/logo-icon.svg') }}" alt="" class="h-7 w-7" width="28" height="28">
     </a>
 
-    <nav class="mt-10 flex flex-1 flex-col items-center gap-2" aria-label="Primary">
+    <nav class="relative mt-10 flex flex-1 flex-col items-center gap-2" aria-label="Primary" data-sidebar-nav>
+        {{-- One bar that slides between icons: the section you're reading
+             on the homepage (scroll-spy), or the current route elsewhere.
+             Positioned by initSectionSpy() in app.js. --}}
+        <span class="sidebar-indicator" aria-hidden="true" data-sidebar-indicator></span>
+
         <a
             href="{{ $navItems[0]['href'] }}"
             aria-label="About"
+            data-spy="about"
             class="group relative flex h-11 w-11 items-center justify-center rounded-xl text-slate-500 transition-all duration-200 hover:bg-brand-50/70 hover:text-brand-600"
         >
             <svg aria-hidden="true" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
@@ -33,6 +39,7 @@
         <a
             href="{{ $navItems[1]['href'] }}"
             aria-label="Services"
+            data-spy="services"
             class="group relative flex h-11 w-11 items-center justify-center rounded-xl text-slate-500 transition-all duration-200 hover:bg-brand-50/70 hover:text-brand-600"
         >
             <svg aria-hidden="true" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
@@ -44,6 +51,7 @@
         <a
             href="{{ $navItems[2]['href'] }}"
             aria-label="Skills"
+            data-spy="skills"
             class="group relative flex h-11 w-11 items-center justify-center rounded-xl text-slate-500 transition-all duration-200 hover:bg-brand-50/70 hover:text-brand-600"
         >
             <svg aria-hidden="true" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
@@ -55,6 +63,7 @@
         <a
             href="{{ $navItems[3]['href'] }}"
             aria-label="Work"
+            data-spy="work"
             @if ($navItems[3]['active']) aria-current="page" @endif
             class="group relative flex h-11 w-11 items-center justify-center rounded-xl transition-all duration-200 hover:bg-brand-50/70 hover:text-brand-600 {{ $navItems[3]['active'] ? 'bg-brand-50/70 text-brand-600' : 'text-slate-500' }}"
         >

@@ -1,4 +1,10 @@
-name = "shaikh-labs"
+name = "name = "shaikh-labs"
+
+[assets]
+directory = "./public"name = "shaikh-labs"
+
+[assets]
+directory = "./public""
 
 [assets]
 directory = "./public"

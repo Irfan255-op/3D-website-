@@ -299,8 +299,17 @@ html.is-dark .border-red-400 {
 
 #page-loader {
     flex-direction: column;
-    gap: 28px;
+    justify-content: flex-end;
+    gap: 22px;
+    padding-bottom: 11vh;
     background: var(--ink-900);
+}
+
+/* While loading, the WebGL canvas rides above the loader so the orb is
+   its centrepiece — and then flies out of it into the hero as it lifts.
+   Removed by app.js once the loader's fade has finished. */
+.is-loading .stage-canvas {
+    z-index: 10001;
 }
 
 .page-loader-logo {
@@ -596,11 +605,36 @@ html.is-dark .stage-blob {
        two collide — and a short measure is better typography anyway. */
     max-width: 32rem;
     padding-top: 1.5rem;
-    border-top: 1px solid rgb(8 8 10 / 0.16);
 }
 
-.is-dark .stage-card {
-    border-top-color: rgb(246 246 247 / 0.18);
+/* The hairline above the content draws itself in, left to right, as the
+   content's entrance starts (data-revealed is set by initScrollReveal). */
+.stage-card::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 1px;
+    background: rgb(8 8 10 / 0.16);
+    transform: scaleX(0);
+    transform-origin: left;
+    transition: transform 1.3s cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+.stage-card[data-revealed]::before {
+    transform: scaleX(1);
+}
+
+.is-dark .stage-card::before {
+    background: rgb(246 246 247 / 0.18);
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .stage-card::before {
+        transform: scaleX(1);
+        transition: none;
+    }
 }
 
 .stage-card[data-side='right'] {

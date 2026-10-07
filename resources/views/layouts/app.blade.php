@@ -34,13 +34,13 @@
     @stack('head')
 </head>
 <body class="font-sans text-slate-900 antialiased">
-    {{-- The entry ritual: the mark, a counter that climbs to 100, and a
+    {{-- The entry ritual: the orb itself (the canvas rides above this
+         overlay while loading), a counter that climbs to 100, and a
          hairline that fills beneath it. The wait is part of the work rather
          than something to apologise for — but it is capped at 3s by the CSS
          auto-hide, because a portfolio visitor wants to see the work, not
          prove their patience. --}}
     <div id="page-loader" aria-hidden="true">
-        <img src="{{ asset('images/logo.svg') }}" alt="" class="page-loader-logo" width="120" height="120">
         <span class="page-loader-count" id="page-loader-count">00</span>
         <span class="page-loader-bar"><i id="page-loader-fill"></i></span>
     </div>

@@ -48,6 +48,8 @@ function initPageLoader() {
         return;
     }
 
+    document.documentElement.classList.add('is-loading');
+
     const count = document.getElementById('page-loader-count');
     const fill = document.getElementById('page-loader-fill');
     let progress = 0;
@@ -85,7 +87,17 @@ function initPageLoader() {
         // instead of the loader vanishing mid-climb.
         window.setTimeout(() => {
             loader.classList.add('is-hidden');
-            loader.addEventListener('transitionend', () => loader.remove(), { once: true });
+            loader.addEventListener(
+                'transitionend',
+                () => {
+                    loader.remove();
+                    // Only now does the canvas drop back beneath <main>:
+                    // while the loader is still fading the orb has to stay
+                    // above it, or it would vanish mid-flight.
+                    document.documentElement.classList.remove('is-loading');
+                },
+                { once: true }
+            );
         }, 380);
     };
 
@@ -184,6 +196,7 @@ function initScrollReveal() {
         const items = card.querySelectorAll(':scope > :not([data-stagger]), [data-stagger] > *');
         const timeline = gsap.timeline({
             scrollTrigger: { trigger: card, start: 'top 85%', once: true, invalidateOnRefresh: true },
+            onStart: () => card.setAttribute('data-revealed', ''),
         });
 
         timeline
@@ -1245,8 +1258,8 @@ function buildHeroSphere(THREE, canvas, RoomEnvironment) {
             // that arrives after the device has assembled would be ignored
             // until the next hover. Resetting the displayed project forces
             // it back through that path with the photo.
-            if (mirrorProject === index) {
-                mirrorStale = true;
+            if (projectorSlide === index) {
+                projectorStale = true;
             }
         };
         image.onerror = () => console.warn('Project screenshot failed to load, using the drawn screen instead.');
@@ -1376,164 +1389,170 @@ function buildHeroSphere(THREE, canvas, RoomEnvironment) {
         return texture;
     }
 
-    // Work: a shattered mirror. At rest, one chrome mirror hangs broken —
-    // its shards drifting apart and tumbling, each a flat facet catching
-    // the light. Hover a project and the shards fly back together into the
-    // whole mirror, which lights up with that site; leave, and it shatters
-    // again. Fifth design for this section. The shards are one non-indexed
-    // geometry rebuilt on the CPU each frame (a hundred-odd triangles is
-    // nothing), which keeps the stock chrome material and its reflections
-    // without any shader surgery.
-    const MIRROR_W = 0.64;
-    const MIRROR_H = 1.02;
-    const MIRROR_LAYOUT = { canvas: [512, 816] };
-    const MIRROR_COLS = 6;
-    const MIRROR_ROWS = 10;
+    // Work: a chrome projector. A lens housing throws a cone of light onto
+    // a screen, and the screen shows a real site. At rest it slowly cycles
+    // through the projects on its own; hover a row and it cuts to that one.
+    // Sixth design for this section, and the first where the actual work is
+    // on screen before you touch anything — every previous shape was an
+    // abstract object that only showed a project on hover.
+    const PROJECTOR_LAYOUT = { canvas: [1024, 640] };
+    const SCREEN_W = 1.5;
+    const SCREEN_H = 0.94;
+    const SLIDE_SECONDS = 5.5;
 
-    // An irregular lattice over the mirror: grid points jittered, each cell
-    // split on a random diagonal. Reads as glass that broke, not a tiling.
-    const lattice = [];
+    const projectorGroup = new THREE.Group();
+    projectorGroup.visible = false;
+    projectorGroup.rotation.y = -0.2;
+    spinner.add(projectorGroup);
 
-    for (let r = 0; r <= MIRROR_ROWS; r += 1) {
-        const row = [];
+    // The screen: a dark backing slab, the projected image, and a static
+    // vignette over it so the light falls off toward the edges the way a
+    // thrown image does rather than ending in a hard rectangle.
+    const screenCentre = new THREE.Vector3(0.3, 0.02, -0.55);
 
-        for (let c = 0; c <= MIRROR_COLS; c += 1) {
-            const edgeX = c === 0 || c === MIRROR_COLS;
-            const edgeY = r === 0 || r === MIRROR_ROWS;
-            row.push(
-                new THREE.Vector3(
-                    (c / MIRROR_COLS - 0.5) * MIRROR_W + (edgeX ? 0 : (Math.random() - 0.5) * (MIRROR_W / MIRROR_COLS) * 0.7),
-                    (0.5 - r / MIRROR_ROWS) * MIRROR_H + (edgeY ? 0 : (Math.random() - 0.5) * (MIRROR_H / MIRROR_ROWS) * 0.7),
-                    0
-                )
-            );
+    const backingMaterial = new THREE.MeshStandardMaterial({
+        color: new THREE.Color('#0f0f12'),
+        roughness: 0.92,
+        metalness: 0.05,
+        transparent: true,
+        opacity: 0,
+        depthWrite: false,
+    });
+    const backing = new THREE.Mesh(new THREE.BoxGeometry(SCREEN_W + 0.08, SCREEN_H + 0.08, 0.035), backingMaterial);
+    backing.position.copy(screenCentre).add(new THREE.Vector3(0, 0, -0.02));
+    projectorGroup.add(backing);
+
+    const slideMaterial = new THREE.MeshBasicMaterial({ transparent: true, opacity: 0, depthWrite: false, toneMapped: false });
+    const slide = new THREE.Mesh(new THREE.PlaneGeometry(SCREEN_W, SCREEN_H), slideMaterial);
+    slide.position.copy(screenCentre);
+    slide.renderOrder = 5;
+    slide.visible = false;
+    projectorGroup.add(slide);
+
+    const vignetteCanvas = document.createElement('canvas');
+    vignetteCanvas.width = 512;
+    vignetteCanvas.height = 320;
+    {
+        const ctx = vignetteCanvas.getContext('2d');
+        const g = ctx.createRadialGradient(256, 160, 60, 256, 160, 320);
+        g.addColorStop(0, 'rgba(0, 0, 0, 0)');
+        g.addColorStop(0.6, 'rgba(0, 0, 0, 0.18)');
+        g.addColorStop(1, 'rgba(0, 0, 0, 0.78)');
+        ctx.fillStyle = g;
+        ctx.fillRect(0, 0, 512, 320);
+    }
+    const vignetteMaterial = new THREE.MeshBasicMaterial({
+        map: new THREE.CanvasTexture(vignetteCanvas),
+        transparent: true,
+        opacity: 0,
+        depthWrite: false,
+        toneMapped: false,
+    });
+    const vignette = new THREE.Mesh(new THREE.PlaneGeometry(SCREEN_W, SCREEN_H), vignetteMaterial);
+    vignette.position.copy(screenCentre).add(new THREE.Vector3(0, 0, 0.004));
+    vignette.renderOrder = 6;
+    projectorGroup.add(vignette);
+
+    // The projector: a chrome barrel with a glass lens, aimed at the screen.
+    const housingMaterial = chromeMaterial();
+    const housing = new THREE.Group();
+    housing.position.set(-1.2, 0.5, 0.95);
+    const barrel = new THREE.Mesh(new THREE.CylinderGeometry(0.085, 0.1, 0.34, 32), housingMaterial);
+    barrel.rotation.x = Math.PI / 2;
+    housing.add(barrel);
+    const lensMaterial = chromeMaterial({ emissive: new THREE.Color('#ffffff'), emissiveIntensity: 0.35 });
+    const lens = new THREE.Mesh(new THREE.SphereGeometry(0.07, 24, 24), lensMaterial);
+    lens.position.z = 0.19;
+    housing.add(lens);
+    housing.lookAt(screenCentre);
+    projectorGroup.add(housing);
+
+    // The beam: an open cone from lens to screen, additive, brightest at
+    // the lens and fading as it widens — with a flicker so it reads as
+    // light, not as a translucent solid.
+    const beamFrom = housing.position.clone().add(new THREE.Vector3(0, 0, 0).applyQuaternion(housing.quaternion));
+    const beamTo = screenCentre.clone();
+    const beamLength = beamFrom.distanceTo(beamTo);
+    const beamUniforms = { uAlpha: { value: 0 }, uFlicker: { value: 1 } };
+    const beam = new THREE.Mesh(
+        new THREE.CylinderGeometry(Math.hypot(SCREEN_W, SCREEN_H) * 0.5, 0.03, beamLength, 48, 1, true),
+        new THREE.ShaderMaterial({
+            uniforms: beamUniforms,
+            vertexShader: `
+                varying vec2 vUv;
+                varying vec3 vNormal;
+                varying vec3 vView;
+                void main() {
+                    vUv = uv;
+                    vNormal = normalize(normalMatrix * normal);
+                    vec4 mv = modelViewMatrix * vec4(position, 1.0);
+                    vView = normalize(-mv.xyz);
+                    gl_Position = projectionMatrix * mv;
+                }
+            `,
+            fragmentShader: `
+                uniform float uAlpha;
+                uniform float uFlicker;
+                varying vec2 vUv;
+                varying vec3 vNormal;
+                varying vec3 vView;
+                void main() {
+                    // Dense at the lens, thinning toward the screen; and
+                    // thicker where the cone is seen edge-on, as a volume is.
+                    float along = pow(1.0 - vUv.y, 1.6);
+                    float rim = pow(1.0 - abs(dot(normalize(vNormal), vView)), 1.2);
+                    float a = (0.05 + along * 0.22) * (0.45 + rim * 0.55) * uAlpha * uFlicker;
+                    gl_FragColor = vec4(vec3(1.0), a);
+                }
+            `,
+            transparent: true,
+            depthWrite: false,
+            side: THREE.DoubleSide,
+            blending: THREE.AdditiveBlending,
+        })
+    );
+    beam.position.copy(beamFrom).lerp(beamTo, 0.5);
+    beam.quaternion.setFromUnitVectors(AXIS_Y, beamTo.clone().sub(beamFrom).normalize());
+    projectorGroup.add(beam);
+
+    let projectorSlide = -1;
+    let projectorStale = false;
+    let slideLit = 0;
+
+    function updateProjector(litProject, shown, raw, time) {
+        housingMaterial.opacity = shown;
+        housingMaterial.depthWrite = shown > 0.97;
+        lensMaterial.opacity = shown;
+        backingMaterial.opacity = shown;
+        backingMaterial.depthWrite = shown > 0.97;
+        vignetteMaterial.opacity = shown;
+        beamUniforms.uAlpha.value = shown;
+        // Two incommensurate sines: a steady lamp with a living flutter.
+        beamUniforms.uFlicker.value = 1 + Math.sin(time * 23) * 0.035 + Math.sin(time * 7.3) * 0.025;
+
+        // Which project is on: the hovered one, else a slow carousel.
+        const wanted = litProject >= 0 ? litProject : Math.floor(time / SLIDE_SECONDS) % Math.max(1, workRows.length);
+        const changing = wanted !== projectorSlide || projectorStale;
+
+        // Cut to black, swap the slide, bring it up — the lamp dips with it.
+        slideLit += ((changing ? 0 : 1) - slideLit) * (1 - Math.exp(-raw * (changing ? 12 : 4.5)));
+
+        if (changing && slideLit < 0.03) {
+            slideMaterial.map = screenTexture(wanted, PROJECTOR_LAYOUT);
+            slideMaterial.needsUpdate = true;
+            projectorSlide = wanted;
+            projectorStale = false;
         }
 
-        lattice.push(row);
-    }
+        slideMaterial.opacity = shown * slideLit;
+        slide.visible = slideMaterial.opacity > 0.01;
+        lensMaterial.emissiveIntensity = 0.2 + slideLit * 0.5;
+        beamUniforms.uAlpha.value *= 0.35 + slideLit * 0.65;
 
-    const shards = [];
-
-    for (let r = 0; r < MIRROR_ROWS; r += 1) {
-        for (let c = 0; c < MIRROR_COLS; c += 1) {
-            const a = lattice[r][c];
-            const b = lattice[r][c + 1];
-            const d = lattice[r + 1][c];
-            const e = lattice[r + 1][c + 1];
-            const tris = Math.random() < 0.5 ? [[a, b, e], [a, e, d]] : [[a, b, d], [b, e, d]];
-
-            tris.forEach((tri) => {
-                const centroid = new THREE.Vector3().add(tri[0]).add(tri[1]).add(tri[2]).multiplyScalar(1 / 3);
-                // Flies mostly out of the plane, toward and away from the
-                // camera — sideways-only spread reads as a flat scatter.
-                const dir = new THREE.Vector3((Math.random() - 0.5) * 0.9, (Math.random() - 0.5) * 0.9, (Math.random() - 0.5) * 2.2).normalize();
-
-                shards.push({
-                    base: tri.map((v) => v.clone().sub(centroid)),
-                    centroid,
-                    dir,
-                    dist: 0.25 + Math.random() * 0.75,
-                    axis: randomUnitVector(),
-                    spin: 0.25 + Math.random() * 0.45,
-                    phase: Math.random() * Math.PI * 2,
-                    drift: Math.random() * Math.PI * 2,
-                    // Like the burst shards: below 1 a piece races ahead of
-                    // the pack, above 1 it lags, so the reassembly ripples
-                    // across the mirror instead of snapping as one block.
-                    easePower: 0.6 + Math.random() * 1.0,
-                });
-            });
-        }
-    }
-
-    const mirrorPositions = new Float32Array(shards.length * 9);
-    const mirrorGeometry = new THREE.BufferGeometry();
-    mirrorGeometry.setAttribute('position', new THREE.BufferAttribute(mirrorPositions, 3).setUsage(THREE.DynamicDrawUsage));
-
-    const mirrorMaterial = chromeMaterial({ side: THREE.DoubleSide, flatShading: true });
-    const mirrorMesh = new THREE.Mesh(mirrorGeometry, mirrorMaterial);
-    mirrorMesh.frustumCulled = false;
-
-    const mirrorGroup = new THREE.Group();
-    mirrorGroup.visible = false;
-    mirrorGroup.rotation.set(0.1, -0.3, 0);
-    mirrorGroup.add(mirrorMesh);
-    spinner.add(mirrorGroup);
-
-    // The lit site, on a plane exactly where the whole mirror reassembles.
-    // Drawn last, so shards still settling (not writing depth while they
-    // fade) can never paint over it.
-    const mirrorScreenMaterial = new THREE.MeshBasicMaterial({ transparent: true, opacity: 0, depthWrite: false, toneMapped: false });
-    const mirrorScreen = new THREE.Mesh(new THREE.PlaneGeometry(MIRROR_W - 0.02, MIRROR_H - 0.02), mirrorScreenMaterial);
-    mirrorScreen.position.z = 0.006;
-    mirrorScreen.renderOrder = 5;
-    mirrorScreen.visible = false;
-    mirrorGroup.add(mirrorScreen);
-
-    let mirrorProject = -1;
-    let mirrorStale = false;
-    let mirrorAssemble = 0;
-
-    const shardQuat = new THREE.Quaternion();
-    const shardVertex = new THREE.Vector3();
-
-    // Writes every shard's three vertices for the given assembly amount
-    // (0 = fully shattered, 1 = whole mirror).
-    function layoutShards(assemble, time) {
-        shards.forEach((shard, i) => {
-            const local = Math.pow(assemble, shard.easePower);
-            const apart = 1 - local;
-
-            // Shattered: tumbling about its own axis and drifting on a slow
-            // figure-of-eight, so the cloud is alive rather than frozen.
-            shardQuat.setFromAxisAngle(shard.axis, apart * (shard.phase + time * shard.spin));
-            const driftX = Math.sin(time * 0.35 + shard.drift) * 0.05 * apart;
-            const driftY = Math.cos(time * 0.27 + shard.drift) * 0.05 * apart;
-
-            shard.base.forEach((v, k) => {
-                shardVertex.copy(v).applyQuaternion(shardQuat);
-                shardVertex.add(shard.centroid).addScaledVector(shard.dir, shard.dist * apart);
-                shardVertex.x += driftX;
-                shardVertex.y += driftY;
-                shardVertex.toArray(mirrorPositions, (i * 3 + k) * 3);
-            });
-        });
-
-        mirrorGeometry.attributes.position.needsUpdate = true;
-        // Flat shading reads each triangle's own normal from these.
-        mirrorGeometry.computeVertexNormals();
-    }
-
-    layoutShards(0, 0);
-
-    function updateMirror(litProject, shown, raw, delta, time) {
-        mirrorMaterial.opacity = shown;
-        mirrorMaterial.depthWrite = shown > 0.97;
-
-        const assembled = litProject >= 0;
-        // Pulls together quickly, falls apart a little more slowly — glass
-        // reassembling should feel willed, shattering should feel like
-        // letting go.
-        mirrorAssemble += ((assembled ? 1 : 0) - mirrorAssemble) * (1 - Math.exp(-raw * (assembled ? 5 : 3.2)));
-        layoutShards(mirrorAssemble, time);
-
-        // Angled toward the copy at rest; squares up to the camera when lit.
-        const targetY = assembled ? -0.1 : -0.3 + Math.sin(time * 0.3) * 0.08;
-        mirrorGroup.rotation.y += (targetY - mirrorGroup.rotation.y) * (1 - Math.exp(-raw * 3));
-        mirrorGroup.rotation.x = 0.1 + Math.sin(time * 0.22) * 0.03;
-
-        // The screen only ever changes texture while dark, and lights once
-        // the mirror has actually come together.
-        if (assembled && (mirrorProject !== litProject || mirrorStale) && mirrorScreenMaterial.opacity < 0.02) {
-            mirrorScreenMaterial.map = screenTexture(litProject, MIRROR_LAYOUT);
-            mirrorScreenMaterial.needsUpdate = true;
-            mirrorProject = litProject;
-            mirrorStale = false;
-        }
-
-        const screenTarget = assembled && mirrorProject === litProject && !mirrorStale && mirrorAssemble > 0.92 ? shown : 0;
-        mirrorScreenMaterial.opacity += (screenTarget - mirrorScreenMaterial.opacity) * (1 - Math.exp(-raw * (screenTarget ? 5 : 14)));
-        mirrorScreen.visible = mirrorScreenMaterial.opacity > 0.01;
+        // The whole rig breathes a little, and squares up slightly when a
+        // row is hovered so the chosen site faces you.
+        const targetY = litProject >= 0 ? -0.08 : -0.2 + Math.sin(time * 0.25) * 0.05;
+        projectorGroup.rotation.y += (targetY - projectorGroup.rotation.y) * (1 - Math.exp(-raw * 3));
     }
 
     // Finale: the shaikh.labs mark in 3D — the same three polygons as
@@ -1801,30 +1820,25 @@ function buildHeroSphere(THREE, canvas, RoomEnvironment) {
         });
     }
 
-    // Points across the shards at their shattered rest pose (the attribute
-    // keeps its historical name; it is the Work shape, whatever that is).
+    // Points over the projector rig at rest: mostly the screen's face, a few
+    // along the beam and on the housing (the attribute keeps its historical
+    // name; it is the Work shape, whatever that is).
     function sampleSlabs(count) {
-        const edge1 = new THREE.Vector3();
-        const edge2 = new THREE.Vector3();
+        const housingPos = new THREE.Vector3(-1.2, 0.5, 0.95);
 
-        return Array.from({ length: count }, () => {
-            const shard = shards[Math.floor(Math.random() * shards.length)];
-            const i = shards.indexOf(shard);
-            const a = new THREE.Vector3().fromArray(mirrorPositions, i * 9);
-            const b = new THREE.Vector3().fromArray(mirrorPositions, i * 9 + 3);
-            const c = new THREE.Vector3().fromArray(mirrorPositions, i * 9 + 6);
-            let u = Math.random();
-            let v = Math.random();
+        return Array.from({ length: count }, (_, i) => {
+            let point;
 
-            if (u + v > 1) {
-                u = 1 - u;
-                v = 1 - v;
+            if (i % 9 === 0) {
+                point = housingPos.clone().add(randomUnitVector().multiplyScalar(0.1));
+            } else if (i % 9 < 3) {
+                const t = Math.random();
+                point = housingPos.clone().lerp(screenCentre, t).add(randomUnitVector().multiplyScalar(0.03 + t * 0.8));
+            } else {
+                point = new THREE.Vector3((Math.random() - 0.5) * SCREEN_W, (Math.random() - 0.5) * SCREEN_H, 0).add(screenCentre);
             }
 
-            return a
-                .addScaledVector(edge1.subVectors(b, a), u)
-                .addScaledVector(edge2.subVectors(c, a), v)
-                .applyEuler(mirrorGroup.rotation);
+            return point.applyAxisAngle(AXIS_Y, -0.2);
         });
     }
 
@@ -2531,7 +2545,7 @@ function buildHeroSphere(THREE, canvas, RoomEnvironment) {
         ScrollTrigger.addEventListener('refresh', () => applyCurtain(realProgress(curtain)));
     }
 
-    const intro = { y: -3.4, scale: 0.72, rotZ: -0.5, opacity: 0 };
+    const intro = { x: 0, y: 0, scale: 0.6, rotZ: -0.35, opacity: 1 };
 
     // Cursor-reactive drift, hero-only: the orb is otherwise static until
     // you scroll, so this is what gives the first screen something to
@@ -3114,7 +3128,7 @@ function buildHeroSphere(THREE, canvas, RoomEnvironment) {
         }
 
         if (shape === SHAPE.blocks) {
-            return mirrorGroup.rotation.y;
+            return projectorGroup.rotation.y;
         }
 
         return shape === SHAPE.logo ? logoGroup.rotation.y : 0;
@@ -3269,14 +3283,14 @@ function buildHeroSphere(THREE, canvas, RoomEnvironment) {
             r.ringMaterial.emissiveIntensity = r.glowCurrent * 2;
         });
 
-        const mirrorShown = scrollCurrent.discs * solid;
-        mirrorGroup.visible = mirrorShown > 0.01;
-        mirrorGroup.scale.setScalar(0.9 + scrollCurrent.discs * 0.1);
-        // The mirror only reassembles while Work is fully settled — never
-        // mid-morph or mid-burst, so the swarm always peels off the shards.
+        const projectorShown = scrollCurrent.discs * solid;
+        projectorGroup.visible = projectorShown > 0.01;
+        projectorGroup.scale.setScalar(0.9 + scrollCurrent.discs * 0.1);
+        // A hovered row only takes over while Work is fully settled — never
+        // mid-morph or mid-burst, so the swarm always peels off the rig.
         const litProject =
             !compactView && hoveredProject >= 0 && scrollCurrent.discs > 0.92 && presence < 0.01 && burst < 0.01 ? hoveredProject : -1;
-        updateMirror(litProject, mirrorShown, raw, delta, time);
+        updateProjector(litProject, projectorShown, raw, time);
 
         logoMaterial.opacity = scrollCurrent.logo * solid;
         logoMaterial.depthWrite = logoMaterial.opacity > 0.97;
@@ -3378,7 +3392,7 @@ function buildHeroSphere(THREE, canvas, RoomEnvironment) {
         const arcDepth = path.z * reach;
         const stretch = crossing * 0.22;
 
-        sphere.position.x = scrollCurrent.x + path.x * reach * (compactView ? 0 : 1) + pointerCurrent.x * 0.32 * heroPresence;
+        sphere.position.x = scrollCurrent.x + intro.x + path.x * reach * (compactView ? 0 : 1) + pointerCurrent.x * 0.32 * heroPresence;
         sphere.position.y = scrollCurrent.y + intro.y - pointerCurrent.y * 0.22 * heroPresence + arcLift;
         sphere.position.z = arcDepth;
         sphere.scale.setScalar(scrollCurrent.scale * intro.scale * arcScale);
@@ -3570,17 +3584,21 @@ function buildHeroSphere(THREE, canvas, RoomEnvironment) {
 
     applyQuality();
     measureWaypoints();
+
+    if (waypoints[0]) {
+        intro.x = -waypoints[0].pose.x;
+        intro.y = -waypoints[0].pose.y;
+    }
+
     tick();
 
-    // Waits for the loader to lift (same signal as the hero copy's staged
-    // rise), so the orb's entrance is something you actually see — it used
-    // to start on module load and could finish entirely behind the loader.
+    // The flight out of the loader. Starts the moment the loader begins to
+    // lift (same signal as the hero copy's staged rise), and takes longer
+    // than the loader's own fade, so the orb is still sweeping right as
+    // the paper hero resolves behind it — the one piece of continuity
+    // between the loading screen and the site.
     pageReady.then(() => {
-        gsap.to(intro, { y: 0, scale: 1, rotZ: 0, duration: 1.6, ease: 'expo.out', delay: 0.15 });
-        // Fades in on its own, faster timeline than the rise — masks the one
-        // blank beat between page paint and the first WebGL frame actually
-        // landing, rather than popping in abruptly once it does.
-        gsap.to(intro, { opacity: 1, duration: 0.7, ease: 'power2.out', delay: 0.1 });
+        gsap.to(intro, { x: 0, y: 0, scale: 1, rotZ: 0, duration: 2.1, ease: 'power3.inOut', delay: 0.2 });
     });
 
     window.addEventListener('resize', () => {

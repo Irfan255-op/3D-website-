@@ -1408,7 +1408,7 @@ function buildHeroSphere(THREE, canvas, RoomEnvironment) {
     // The screen: a dark backing slab, the projected image, and a static
     // vignette over it so the light falls off toward the edges the way a
     // thrown image does rather than ending in a hard rectangle.
-    const screenCentre = new THREE.Vector3(0.3, 0.02, -0.55);
+    const screenCentre = new THREE.Vector3(-0.42, 0.02, -0.35);
 
     const backingMaterial = new THREE.MeshStandardMaterial({
         color: new THREE.Color('#0f0f12'),
@@ -1456,7 +1456,7 @@ function buildHeroSphere(THREE, canvas, RoomEnvironment) {
     // The projector: a chrome barrel with a glass lens, aimed at the screen.
     const housingMaterial = chromeMaterial();
     const housing = new THREE.Group();
-    housing.position.set(-1.2, 0.5, 0.95);
+    housing.position.set(-1.75, 0.55, 1.05);
     const barrel = new THREE.Mesh(new THREE.CylinderGeometry(0.085, 0.1, 0.34, 32), housingMaterial);
     barrel.rotation.x = Math.PI / 2;
     housing.add(barrel);
@@ -1824,7 +1824,7 @@ function buildHeroSphere(THREE, canvas, RoomEnvironment) {
     // along the beam and on the housing (the attribute keeps its historical
     // name; it is the Work shape, whatever that is).
     function sampleSlabs(count) {
-        const housingPos = new THREE.Vector3(-1.2, 0.5, 0.95);
+        const housingPos = new THREE.Vector3(-1.75, 0.55, 1.05);
 
         return Array.from({ length: count }, (_, i) => {
             let point;

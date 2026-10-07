@@ -1,2 +1,4 @@
+name = "shaikh-labs"
+
 [assets]
 directory = "./public"

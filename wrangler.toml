@@ -1,10 +1,5 @@
-name = "name = "shaikh-labs"
-
-[assets]
-directory = "./public"name = "shaikh-labs"
-
-[assets]
-directory = "./public""
+name = "shaikh-labs"
+compatibility_date = "2026-10-07"
 
 [assets]
 directory = "./public"
